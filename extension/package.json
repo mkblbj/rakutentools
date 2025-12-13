@@ -1,0 +1,43 @@
+{
+  "name": "rakutentools",
+  "displayName": "UO 自社 Rakutentools - AI ツール",
+  "version": "0.0.1",
+  "description": "Rakuten RMS AI回复助手",
+  "author": "UO",
+  "scripts": {
+    "dev": "plasmo dev",
+    "build": "plasmo build",
+    "build:firefox": "plasmo build --target=firefox-mv2",
+    "package": "plasmo package"
+  },
+  "dependencies": {
+    "@plasmohq/messaging": "^0.6.2",
+    "@plasmohq/storage": "^1.12.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@types/chrome": "0.1.32",
+    "@types/node": "25.0.1",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "autoprefixer": "^10.4.22",
+    "plasmo": "0.90.5",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.19",
+    "typescript": "5.9.3"
+  },
+  "manifest": {
+    "permissions": [
+      "storage",
+      "activeTab",
+      "scripting"
+    ],
+    "host_permissions": [
+      "https://*.rakuten.co.jp/*",
+      "https://api.openai.com/*",
+      "https://generativelanguage.googleapis.com/*"
+    ]
+  },
+  "packageManager": "pnpm@10.12.1"
+}
