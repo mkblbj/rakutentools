@@ -28,7 +28,7 @@ function IndexPopup() {
   return (
     <div className="w-80 p-6 bg-white">
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center text-white text-sm font-bold">
+        <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold" style={{ backgroundColor: '#2478AE' }}>
           UO
         </div>
         <div>
@@ -47,9 +47,20 @@ function IndexPopup() {
             onClick={toggleEnabled}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
               isEnabled
-                ? "bg-red-600 text-white hover:bg-red-700"
+                ? "text-white"
                 : "bg-gray-300 text-gray-600 hover:bg-gray-400"
-            }`}>
+            }`}
+            style={isEnabled ? { backgroundColor: '#2478AE' } : {}}
+            onMouseEnter={(e) => {
+              if (isEnabled) {
+                e.currentTarget.style.backgroundColor = '#1e6292'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (isEnabled) {
+                e.currentTarget.style.backgroundColor = '#2478AE'
+              }
+            }}>
             {isEnabled ? "启用中" : "已暂停"}
           </button>
         </div>

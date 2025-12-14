@@ -84,7 +84,8 @@ export const DEFAULT_REVIEW_PROMPT = `【人物設定】
 – レビュー内容:「商品が期待以上で、大変満足しています。さらに、パッケージもとてもおしゃれで、届いた時に驚きと喜びがありました。」
 
 【出力例】
-以下のような出力例1～5を順番に、参考にして、偏りなく出力してください。
+**必ず「出力例{{template_number}}」のスタイルを参考にして返信を作成してください。**
+他の出力例は無視し、指定された出力例のトーンと構成に従ってください。
 
 1.嬉しいご感想をありがとうございます。
 
@@ -135,6 +136,13 @@ export const DEFAULT_INQUIRY_PROMPT = `【人物設定】
 – 役職: カスタマーサービス担当
 – 性格: 謙虚で親しみやすく、お客様の不安や疑問に真摯に向き合う
 – 基本方針: お客様への感謝と誠意を持って対応し、具体的で分かりやすい情報を提供する
+
+【お問い合わせ情報】
+– お問い合わせ番号: {{inquiry_number}}
+– カテゴリー: {{category}}
+– お客様名: {{customer_name}}
+– 受付時間: {{received_time}}
+– 注文番号: {{order_number}}
 
 【お問い合わせ内容】
 {{inquiry_content}}
@@ -276,6 +284,7 @@ https://ichiba.faq.rakuten.net/detail/000006734
 // 默认设置
 const DEFAULT_SETTINGS: UserSettings = {
   provider: "openai",
+  geminiModel: "gemini-2.5-flash",
   enabled: true,
   reviewPrompt: DEFAULT_REVIEW_PROMPT,
   inquiryPrompt: DEFAULT_INQUIRY_PROMPT,
@@ -295,6 +304,7 @@ export class StorageService {
           "openaiKey",
           "geminiKey",
           "provider",
+          "geminiModel",
           "reviewPrompt",
           "inquiryPrompt",
           "enabled",
@@ -340,6 +350,23 @@ export class StorageService {
   static async getProvider(): Promise<ProviderType> {
     const settings = await this.getSettings()
     return settings.provider
+  }
+
+  /**
+   * 获取 Gemini 模型
+   */
+  static async getGeminiModel(): Promise<"gemini-2.5-flash" | "gemini-2.5-flash-lite" | "gemini-2.0-flash-lite"> {
+    const settings = await this.getSettings()
+    return settings.geminiModel || "gemini-2.5-flash"
+  }
+
+  /**
+   * 设置 Gemini 模型
+   */
+  static async setGeminiModel(model: "gemini-2.5-flash" | "gemini-2.5-flash-lite" | "gemini-2.0-flash-lite"): Promise<void> {
+    const settings = await this.getSettings()
+    settings.geminiModel = model
+    await this.saveSettings(settings)
   }
 
   /**

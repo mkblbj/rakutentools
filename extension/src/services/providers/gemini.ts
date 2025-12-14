@@ -4,8 +4,9 @@ import type { LLMProvider, ProviderConfig } from "~types"
  * Gemini Provider - 调用 Google Generative AI API
  * 
  * 支持的模型:
- * - gemini-2.5-flash: 快速且经济实惠的模型
- * - gemini-pro: 标准模型
+ * - gemini-2.5-flash: 2.5 标准快速模型（默认）
+ * - gemini-2.5-flash-lite: 2.5 轻量级快速模型（配额独立）
+ * - gemini-2.0-flash-lite: 2.0 轻量级快速模型（配额独立）
  * 
  * @see https://ai.google.dev/gemini-api/docs
  */

@@ -32,6 +32,9 @@ export class ModelFactory {
       case "openai":
         return new OpenAIProvider(config)
       case "gemini":
+        // 获取用户选择的 Gemini 模型
+        const geminiModel = await StorageService.getGeminiModel()
+        config.model = geminiModel
         return new GeminiProvider(config)
       default:
         throw new Error(`不支持的 Provider: ${provider}`)

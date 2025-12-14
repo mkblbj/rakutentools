@@ -93,6 +93,10 @@ function buildPrompt(
 ): string {
   let prompt = template
 
+  // 为评价回复随机选择模板编号（1-5）
+  const templateNumber = Math.floor(Math.random() * 5) + 1
+  prompt = prompt.replace(/\{\{template_number\}\}/g, templateNumber.toString())
+
   if (type === "review") {
     const reviewContext = context as ReviewContext
     prompt = prompt
@@ -104,6 +108,11 @@ function buildPrompt(
     const inquiryContext = context as InquiryContext
     prompt = prompt
       .replace(/\{\{inquiry_content\}\}/g, inquiryContext.inquiryContent || "")
+      .replace(/\{\{customer_name\}\}/g, inquiryContext.customerName || "")
+      .replace(/\{\{category\}\}/g, inquiryContext.category || "")
+      .replace(/\{\{order_number\}\}/g, inquiryContext.orderNumber || "")
+      .replace(/\{\{inquiry_number\}\}/g, inquiryContext.inquiryNumber || "")
+      .replace(/\{\{received_time\}\}/g, inquiryContext.receivedTime || "")
       .replace(/\{\{product_name\}\}/g, inquiryContext.productName || "")
       .replace(/\{\{conversation_history\}\}/g, inquiryContext.conversationHistory || "")
   }

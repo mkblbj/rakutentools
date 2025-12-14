@@ -48,7 +48,7 @@ function OptionsIndex() {
       <div className="bg-white border-b">
         <div className="max-w-6xl mx-auto px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center text-white text-lg font-bold">
+            <div className="w-12 h-12 rounded-lg flex items-center justify-center text-white text-lg font-bold" style={{ backgroundColor: '#2478AE' }}>
               UO
             </div>
             <div>
@@ -67,18 +67,20 @@ function OptionsIndex() {
               onClick={() => setActiveTab("api")}
               className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-colors ${
                 activeTab === "api"
-                  ? "bg-red-600 text-white"
+                  ? "text-white"
                   : "bg-white text-gray-700 hover:bg-gray-100"
-              }`}>
+              }`}
+              style={activeTab === "api" ? { backgroundColor: '#2478AE' } : {}}>
               🔑 API 设置
             </button>
             <button
               onClick={() => setActiveTab("prompts")}
               className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-colors ${
                 activeTab === "prompts"
-                  ? "bg-red-600 text-white"
+                  ? "text-white"
                   : "bg-white text-gray-700 hover:bg-gray-100"
-              }`}>
+              }`}
+              style={activeTab === "prompts" ? { backgroundColor: '#2478AE' } : {}}>
               📝 Prompt 编辑器
             </button>
           </div>
@@ -108,9 +110,10 @@ function OptionsIndex() {
                       }
                       className={`px-6 py-3 rounded-lg font-medium transition-colors ${
                         settings.provider === "openai"
-                          ? "bg-green-600 text-white"
+                          ? "text-white"
                           : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                      }`}>
+                      }`}
+                      style={settings.provider === "openai" ? { backgroundColor: '#2478AE' } : {}}>
                       OpenAI (GPT-4o-mini)
                     </button>
                     <button
@@ -119,9 +122,10 @@ function OptionsIndex() {
                       }
                       className={`px-6 py-3 rounded-lg font-medium transition-colors ${
                         settings.provider === "gemini"
-                          ? "bg-blue-600 text-white"
+                          ? "text-white"
                           : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                      }`}>
+                      }`}
+                      style={settings.provider === "gemini" ? { backgroundColor: '#2478AE' } : {}}>
                       Google Gemini
                     </button>
                   </div>
@@ -129,9 +133,17 @@ function OptionsIndex() {
 
                 {/* OpenAI Key */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    OpenAI API Key
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      OpenAI API Key
+                    </label>
+                    <a
+                      href="https://platform.openai.com/usage"
+                      target="_blank"
+                      className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                      📊 查看用量
+                    </a>
+                  </div>
                   <input
                     type="password"
                     value={settings.openaiKey}
@@ -155,9 +167,17 @@ function OptionsIndex() {
 
                 {/* Gemini Key */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Gemini API Key
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Gemini API Key
+                    </label>
+                    <a
+                      href="https://aistudio.google.com/app/apikey"
+                      target="_blank"
+                      className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                      📊 查看配额
+                    </a>
+                  </div>
                   <input
                     type="password"
                     value={settings.geminiKey}
@@ -170,7 +190,7 @@ function OptionsIndex() {
                   <p className="mt-1 text-xs text-gray-500">
                     从{" "}
                     <a
-                      href="https://makersuite.google.com/app/apikey"
+                      href="https://aistudio.google.com/app/apikey"
                       target="_blank"
                       className="text-blue-600 hover:underline">
                       Google AI Studio
@@ -178,6 +198,56 @@ function OptionsIndex() {
                     获取
                   </p>
                 </div>
+
+                {/* Gemini Model Selection - 只在选择 Gemini 时显示 */}
+                {settings.provider === "gemini" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Gemini 模型选择
+                    </label>
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        onClick={() =>
+                          setSettings({ ...settings, geminiModel: "gemini-2.5-flash" })
+                        }
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                          (!settings.geminiModel || settings.geminiModel === "gemini-2.5-flash")
+                            ? "text-white"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        }`}
+                        style={(!settings.geminiModel || settings.geminiModel === "gemini-2.5-flash") ? { backgroundColor: '#2478AE' } : {}}>
+                        2.5-flash
+                      </button>
+                      <button
+                        onClick={() =>
+                          setSettings({ ...settings, geminiModel: "gemini-2.5-flash-lite" })
+                        }
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                          settings.geminiModel === "gemini-2.5-flash-lite"
+                            ? "text-white"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        }`}
+                        style={settings.geminiModel === "gemini-2.5-flash-lite" ? { backgroundColor: '#2478AE' } : {}}>
+                        2.5-flash-lite
+                      </button>
+                      <button
+                        onClick={() =>
+                          setSettings({ ...settings, geminiModel: "gemini-2.0-flash-lite" })
+                        }
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                          settings.geminiModel === "gemini-2.0-flash-lite"
+                            ? "text-white"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        }`}
+                        style={settings.geminiModel === "gemini-2.0-flash-lite" ? { backgroundColor: '#2478AE' } : {}}>
+                        2.0-flash-lite
+                      </button>
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500">
+                      💡 当某个模型达到每日配额限制时，可切换到另一个模型继续使用（配额独立）
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -259,7 +329,14 @@ function OptionsIndex() {
             <div className="flex items-center gap-3 mt-6 pt-6 border-t">
               <button
                 onClick={handleSave}
-                className="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors">
+                className="px-6 py-3 text-white rounded-lg font-medium transition-colors"
+                style={{ backgroundColor: '#2478AE' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#1e6292'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#2478AE'
+                }}>
                 保存设置
               </button>
               {saveStatus && (

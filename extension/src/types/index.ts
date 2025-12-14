@@ -3,6 +3,7 @@ export interface UserSettings {
   openaiKey?: string
   geminiKey?: string
   provider: "openai" | "gemini"
+  geminiModel?: "gemini-2.5-flash" | "gemini-2.5-flash-lite" | "gemini-2.0-flash-lite" // Gemini 模型选择
   reviewPrompt?: string
   inquiryPrompt?: string
   enabled: boolean
@@ -22,6 +23,11 @@ export interface ReviewContext {
 // 咨询上下文
 export interface InquiryContext {
   inquiryContent: string
+  customerName?: string
+  category?: string
+  orderNumber?: string
+  inquiryNumber?: string
+  receivedTime?: string
   productName?: string
   conversationHistory?: string
 }
