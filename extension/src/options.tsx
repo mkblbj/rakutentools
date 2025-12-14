@@ -1,76 +1,37 @@
 import { useState, useEffect } from "react"
 import "./style.css"
-
-const DEFAULT_REVIEW_PROMPT = `你是一位专业的日本电商客服代表。请根据以下信息生成一条友好、专业的日语回复：
-
-评论内容：{{review_content}}
-评分：{{rating}}星
-商品名称：{{product_name}}
-
-要求：
-1. 感谢客户的评价
-2. 如果是好评，表达感激；如果有建议或负面评价，诚恳表示会改进
-3. 保持专业、礼貌的语气
-4. 使用标准的日语商务敬语
-5. 字数控制在100字以内
-
-请直接生成回复内容，不需要其他解释。`
-
-const DEFAULT_INQUIRY_PROMPT = `你是一位专业的日本电商客服代表。请根据客户的咨询内容生成一条友好、专业的日语回复：
-
-客户咨询：{{inquiry_content}}
-商品信息：{{product_name}}
-
-要求：
-1. 礼貌地回应客户的问题
-2. 提供清晰、准确的信息
-3. 使用标准的日语商务敬语
-4. 保持友好、专业的语气
-5. 如果需要额外信息，礼貌地询问
-
-请直接生成回复内容，不需要其他解释。`
-
-interface Settings {
-  openaiKey: string
-  geminiKey: string
-  provider: "openai" | "gemini"
-  reviewPrompt: string
-  inquiryPrompt: string
-}
+import type { UserSettings } from "~types"
+import { StorageService, DEFAULT_REVIEW_PROMPT, DEFAULT_INQUIRY_PROMPT } from "~services"
 
 function OptionsIndex() {
   const [activeTab, setActiveTab] = useState<"api" | "prompts">("api")
-  const [settings, setSettings] = useState<Settings>({
+  const [settings, setSettings] = useState<UserSettings>({
     openaiKey: "",
     geminiKey: "",
     provider: "openai",
     reviewPrompt: DEFAULT_REVIEW_PROMPT,
     inquiryPrompt: DEFAULT_INQUIRY_PROMPT,
+    enabled: true,
   })
   const [saveStatus, setSaveStatus] = useState<string>("")
   const [promptTab, setPromptTab] = useState<"review" | "inquiry">("review")
 
   useEffect(() => {
     // 从 storage 加载设置
-    chrome.storage.local.get(
-      ["openaiKey", "geminiKey", "provider", "reviewPrompt", "inquiryPrompt"],
-      (result) => {
-        setSettings({
-          openaiKey: result.openaiKey || "",
-          geminiKey: result.geminiKey || "",
-          provider: result.provider || "openai",
-          reviewPrompt: result.reviewPrompt || DEFAULT_REVIEW_PROMPT,
-          inquiryPrompt: result.inquiryPrompt || DEFAULT_INQUIRY_PROMPT,
-        })
-      }
-    )
+    StorageService.getSettings().then((loadedSettings) => {
+      setSettings(loadedSettings)
+    })
   }, [])
 
-  const handleSave = () => {
-    chrome.storage.local.set(settings, () => {
+  const handleSave = async () => {
+    try {
+      await StorageService.saveSettings(settings)
       setSaveStatus("✅ 保存成功")
       setTimeout(() => setSaveStatus(""), 2000)
-    })
+    } catch (error) {
+      setSaveStatus("❌ 保存失败")
+      console.error("Save settings error:", error)
+    }
   }
 
   const resetPrompt = (type: "review" | "inquiry") => {

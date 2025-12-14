@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import "./style.css"
+import { StorageService } from "~services"
 
 function IndexPopup() {
   const [isEnabled, setIsEnabled] = useState(true)
@@ -7,17 +8,16 @@ function IndexPopup() {
 
   useEffect(() => {
     // 从 storage 读取启用状态
-    chrome.storage.local.get(["enabled"], (result) => {
-      if (result.enabled !== undefined) {
-        setIsEnabled(result.enabled)
-      }
+    StorageService.isEnabled().then((enabled) => {
+      setIsEnabled(enabled)
+      setStatus(enabled ? "就绪" : "已暂停")
     })
   }, [])
 
-  const toggleEnabled = () => {
+  const toggleEnabled = async () => {
     const newState = !isEnabled
     setIsEnabled(newState)
-    chrome.storage.local.set({ enabled: newState })
+    await StorageService.saveSettings({ enabled: newState })
     setStatus(newState ? "已启用" : "已暂停")
   }
 

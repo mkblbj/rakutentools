@@ -1,151 +1,114 @@
+import type { GenerateRequest, GenerateResponse, ReviewContext, InquiryContext } from "~types"
+import { StorageService } from "~services/storage"
+import { ModelFactory } from "~services/providers"
+
 // Background Service Worker
 console.log("UO Rakutentools Background Service Worker started")
 
 // 监听安装事件
 chrome.runtime.onInstalled.addListener((details) => {
   console.log("Extension installed:", details.reason)
-  
+
   // 初始化默认设置
-  chrome.storage.local.get(["enabled", "provider"], (result) => {
-    if (result.enabled === undefined) {
-      chrome.storage.local.set({ enabled: true })
-    }
-    if (!result.provider) {
-      chrome.storage.local.set({ provider: "openai" })
-    }
-  })
+  if (details.reason === "install") {
+    StorageService.resetToDefaults().catch(console.error)
+  }
 })
 
 // 监听来自 content script 的消息
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log("Received message:", request)
-  
+
   if (request.action === "generate_reply") {
-    handleGenerateReply(request.data)
+    handleGenerateReply(request.data as GenerateRequest)
       .then((response) => {
-        sendResponse({ success: true, data: response })
+        sendResponse(response)
       })
       .catch((error) => {
         console.error("Error generating reply:", error)
-        sendResponse({ success: false, error: error.message })
+        sendResponse({
+          success: false,
+          error: error.message || "生成回复失败",
+        } as GenerateResponse)
       })
-    
+
     // 返回 true 表示异步响应
     return true
   }
-  
+
   return false
 })
 
-async function handleGenerateReply(data: {
-  type: "review" | "inquiry"
-  context: any
-}) {
-  // 获取用户设置
-  const settings = await chrome.storage.local.get([
-    "provider",
-    "openaiKey",
-    "geminiKey",
-    "reviewPrompt",
-    "inquiryPrompt",
-    "enabled",
-  ])
-
-  if (!settings.enabled) {
-    throw new Error("插件已暂停")
-  }
-
-  const provider = settings.provider || "openai"
-  const apiKey =
-    provider === "openai" ? settings.openaiKey : settings.geminiKey
-
-  if (!apiKey) {
-    throw new Error(`请先配置 ${provider === "openai" ? "OpenAI" : "Gemini"} API Key`)
-  }
-
-  // 根据类型选择 prompt
-  const promptTemplate =
-    data.type === "review" ? settings.reviewPrompt : settings.inquiryPrompt
-
-  if (!promptTemplate) {
-    throw new Error("未找到对应的 Prompt 模板")
-  }
-
-  // 替换变量
-  let prompt = promptTemplate
-  if (data.type === "review") {
-    prompt = prompt
-      .replace(/\{\{review_content\}\}/g, data.context.reviewContent || "")
-      .replace(/\{\{rating\}\}/g, data.context.rating || "5")
-      .replace(/\{\{product_name\}\}/g, data.context.productName || "")
-  } else {
-    prompt = prompt
-      .replace(/\{\{inquiry_content\}\}/g, data.context.inquiryContent || "")
-      .replace(/\{\{product_name\}\}/g, data.context.productName || "")
-  }
-
-  // 调用对应的 AI 服务
-  if (provider === "openai") {
-    return await callOpenAI(apiKey, prompt)
-  } else {
-    return await callGemini(apiKey, prompt)
-  }
-}
-
-async function callOpenAI(apiKey: string, prompt: string): Promise<string> {
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-      max_tokens: 500,
-    }),
-  })
-
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error?.message || "OpenAI API 调用失败")
-  }
-
-  const data = await response.json()
-  return data.choices[0]?.message?.content || ""
-}
-
-async function callGemini(apiKey: string, prompt: string): Promise<string> {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: prompt }],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 500,
-        },
-      }),
+/**
+ * 处理生成回复请求
+ */
+async function handleGenerateReply(
+  request: GenerateRequest
+): Promise<GenerateResponse> {
+  try {
+    // 1. 检查插件是否启用
+    const isEnabled = await StorageService.isEnabled()
+    if (!isEnabled) {
+      throw new Error("插件已暂停")
     }
-  )
 
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error?.message || "Gemini API 调用失败")
+    // 2. 获取当前 Provider 和 API Key
+    const provider = await StorageService.getProvider()
+    const hasApiKey = await StorageService.validateApiKey(provider)
+    
+    if (!hasApiKey) {
+      throw new Error(`请先配置 ${provider === "openai" ? "OpenAI" : "Gemini"} API Key`)
+    }
+
+    // 3. 获取对应的 Prompt 模板
+    const promptTemplate = await StorageService.getPrompt(request.type)
+
+    // 4. 替换变量
+    const prompt = buildPrompt(promptTemplate, request.type, request.context)
+
+    // 5. 创建 Provider 并调用 AI
+    const llmProvider = await ModelFactory.createCurrentProvider()
+    const reply = await llmProvider.generateReply(prompt)
+
+    return {
+      success: true,
+      data: reply,
+    }
+  } catch (error) {
+    console.error("Generate reply error:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "未知错误",
+    }
+  }
+}
+
+/**
+ * 构建 Prompt（替换变量）
+ */
+function buildPrompt(
+  template: string,
+  type: "review" | "inquiry",
+  context: ReviewContext | InquiryContext
+): string {
+  let prompt = template
+
+  if (type === "review") {
+    const reviewContext = context as ReviewContext
+    prompt = prompt
+      .replace(/\{\{review_content\}\}/g, reviewContext.reviewContent || "")
+      .replace(/\{\{rating\}\}/g, reviewContext.rating || "5")
+      .replace(/\{\{product_name\}\}/g, reviewContext.productName || "")
+      .replace(/\{\{buyer_name\}\}/g, reviewContext.buyerName || "")
+  } else if (type === "inquiry") {
+    const inquiryContext = context as InquiryContext
+    prompt = prompt
+      .replace(/\{\{inquiry_content\}\}/g, inquiryContext.inquiryContent || "")
+      .replace(/\{\{product_name\}\}/g, inquiryContext.productName || "")
+      .replace(/\{\{conversation_history\}\}/g, inquiryContext.conversationHistory || "")
   }
 
-  const data = await response.json()
-  return data.candidates[0]?.content?.parts[0]?.text || ""
+  return prompt
 }
 
 export {}
-
