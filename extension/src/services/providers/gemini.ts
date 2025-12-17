@@ -4,11 +4,12 @@ import type { LLMProvider, ProviderConfig } from "~types"
  * Gemini Provider - 调用 Google Generative AI API
  * 
  * 支持的模型:
+ * - gemini-3-pro-preview: 最强大的 Gemini 3 Pro 预览版（推荐）
  * - gemini-2.5-flash: 2.5 标准快速模型（默认）
  * - gemini-2.5-flash-lite: 2.5 轻量级快速模型（配额独立）
  * - gemini-2.0-flash-lite: 2.0 轻量级快速模型（配额独立）
  * 
- * @see https://ai.google.dev/gemini-api/docs
+ * @see https://ai.google.dev/gemini-api/docs/models
  */
 export class GeminiProvider implements LLMProvider {
   private apiKey: string
@@ -23,7 +24,7 @@ export class GeminiProvider implements LLMProvider {
     // 标准 temperature
     this.temperature = config.temperature ?? 0.7
     // 日语需要更多 tokens（1 token ≈ 1-2 日语字符）
-    this.maxTokens = config.maxTokens || 2000
+    this.maxTokens = config.maxTokens || 4000
   }
 
   /**

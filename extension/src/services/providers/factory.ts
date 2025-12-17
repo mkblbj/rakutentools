@@ -1,6 +1,7 @@
 import type { LLMProvider, ProviderType, ProviderConfig } from "~types"
 import { OpenAIProvider } from "./openai"
 import { GeminiProvider } from "./gemini"
+import { ZenMuxProvider } from "./zenmux"
 import { StorageService } from "../storage"
 
 /**
@@ -36,6 +37,11 @@ export class ModelFactory {
         const geminiModel = await StorageService.getGeminiModel()
         config.model = geminiModel
         return new GeminiProvider(config)
+      case "zenmux":
+        // 获取用户选择的 ZenMux 模型
+        const zenmuxModel = await StorageService.getZenMuxModel()
+        config.model = zenmuxModel
+        return new ZenMuxProvider(config)
       default:
         throw new Error(`不支持的 Provider: ${provider}`)
     }

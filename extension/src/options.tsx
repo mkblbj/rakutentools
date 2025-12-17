@@ -103,101 +103,117 @@ function OptionsIndex() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     默认 AI 模型
                   </label>
-                  <div className="flex gap-4">
+                  <div className="flex flex-wrap gap-3">
                     <button
                       onClick={() =>
                         setSettings({ ...settings, provider: "openai" })
                       }
-                      className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                      className={`px-5 py-3 rounded-lg font-medium transition-colors ${
                         settings.provider === "openai"
                           ? "text-white"
                           : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                       }`}
                       style={settings.provider === "openai" ? { backgroundColor: '#2478AE' } : {}}>
-                      OpenAI (GPT-4o-mini)
+                      OpenAI
                     </button>
                     <button
                       onClick={() =>
                         setSettings({ ...settings, provider: "gemini" })
                       }
-                      className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                      className={`px-5 py-3 rounded-lg font-medium transition-colors ${
                         settings.provider === "gemini"
                           ? "text-white"
                           : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                       }`}
                       style={settings.provider === "gemini" ? { backgroundColor: '#2478AE' } : {}}>
-                      Google Gemini
+                      Gemini
+                    </button>
+                    <button
+                      onClick={() =>
+                        setSettings({ ...settings, provider: "zenmux" })
+                      }
+                      className={`px-5 py-3 rounded-lg font-medium transition-colors ${
+                        settings.provider === "zenmux"
+                          ? "text-white"
+                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      }`}
+                      style={settings.provider === "zenmux" ? { backgroundColor: '#2478AE' } : {}}>
+                      🌐 ZenMux
                     </button>
                   </div>
                 </div>
 
-                {/* OpenAI Key */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      OpenAI API Key
-                    </label>
-                    <a
-                      href="https://platform.openai.com/usage"
-                      target="_blank"
-                      className="text-xs text-blue-600 hover:underline flex items-center gap-1">
-                      📊 查看用量
-                    </a>
+                {/* OpenAI Key - 只在选择 OpenAI 时显示 */}
+                {settings.provider === "openai" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        OpenAI API Key
+                      </label>
+                      <a
+                        href="https://platform.openai.com/usage"
+                        target="_blank"
+                        className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                        📊 查看用量
+                      </a>
+                    </div>
+                    <input
+                      type="password"
+                      value={settings.openaiKey}
+                      onChange={(e) =>
+                        setSettings({ ...settings, openaiKey: e.target.value })
+                      }
+                      placeholder="sk-..."
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      从{" "}
+                      <a
+                        href="https://platform.openai.com/api-keys"
+                        target="_blank"
+                        className="text-blue-600 hover:underline">
+                        OpenAI Platform
+                      </a>{" "}
+                      获取
+                    </p>
                   </div>
-                  <input
-                    type="password"
-                    value={settings.openaiKey}
-                    onChange={(e) =>
-                      setSettings({ ...settings, openaiKey: e.target.value })
-                    }
-                    placeholder="sk-..."
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    从{" "}
-                    <a
-                      href="https://platform.openai.com/api-keys"
-                      target="_blank"
-                      className="text-blue-600 hover:underline">
-                      OpenAI Platform
-                    </a>{" "}
-                    获取
-                  </p>
-                </div>
+                )}
 
-                {/* Gemini Key */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Gemini API Key
-                    </label>
-                    <a
-                      href="https://aistudio.google.com/app/apikey"
-                      target="_blank"
-                      className="text-xs text-blue-600 hover:underline flex items-center gap-1">
-                      📊 查看配额
-                    </a>
+                {/* Gemini Key - 只在选择 Gemini 时显示 */}
+                {settings.provider === "gemini" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Gemini API Key
+                      </label>
+                      <a
+                        href="https://aistudio.google.com/app/apikey"
+                        target="_blank"
+                        className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                        📊 查看配额
+                      </a>
+                    </div>
+                    <input
+                      type="password"
+                      value={settings.geminiKey}
+                      onChange={(e) =>
+                        setSettings({ ...settings, geminiKey: e.target.value })
+                      }
+                      placeholder="AIza..."
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      从{" "}
+                      <a
+                        href="https://aistudio.google.com/app/apikey"
+                        target="_blank"
+                        className="text-blue-600 hover:underline">
+                        Google AI Studio
+                      </a>{" "}
+                      获取
+                    </p>
                   </div>
-                  <input
-                    type="password"
-                    value={settings.geminiKey}
-                    onChange={(e) =>
-                      setSettings({ ...settings, geminiKey: e.target.value })
-                    }
-                    placeholder="AIza..."
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    从{" "}
-                    <a
-                      href="https://aistudio.google.com/app/apikey"
-                      target="_blank"
-                      className="text-blue-600 hover:underline">
-                      Google AI Studio
-                    </a>{" "}
-                    获取
-                  </p>
-                </div>
+                )}
 
                 {/* Gemini Model Selection - 只在选择 Gemini 时显示 */}
                 {settings.provider === "gemini" && (
@@ -206,6 +222,18 @@ function OptionsIndex() {
                       Gemini 模型选择
                     </label>
                     <div className="flex flex-wrap gap-3">
+                      <button
+                        onClick={() =>
+                          setSettings({ ...settings, geminiModel: "gemini-3-pro-preview" })
+                        }
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                          settings.geminiModel === "gemini-3-pro-preview"
+                            ? "text-white"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        }`}
+                        style={settings.geminiModel === "gemini-3-pro-preview" ? { backgroundColor: '#2478AE' } : {}}>
+                        🚀 3-pro-preview
+                      </button>
                       <button
                         onClick={() =>
                           setSettings({ ...settings, geminiModel: "gemini-2.5-flash" })
@@ -244,9 +272,115 @@ function OptionsIndex() {
                       </button>
                     </div>
                     <p className="mt-2 text-xs text-gray-500">
-                      💡 当某个模型达到每日配额限制时，可切换到另一个模型继续使用（配额独立）
+                      💡 3-pro-preview 是最强大的模型；当某个模型达到每日配额限制时，可切换到另一个模型继续使用
                     </p>
                   </div>
+                )}
+
+                {/* ZenMux Key - 只在选择 ZenMux 时显示 */}
+                {settings.provider === "zenmux" && (
+                  <>
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          ZenMux API Key
+                        </label>
+                        <a
+                          href="https://zenmux.ai/console"
+                          target="_blank"
+                          className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                          📊 查看用量
+                        </a>
+                      </div>
+                      <input
+                        type="password"
+                        value={settings.zenmuxKey || ""}
+                        onChange={(e) =>
+                          setSettings({ ...settings, zenmuxKey: e.target.value })
+                        }
+                        placeholder="zm-..."
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        从{" "}
+                        <a
+                          href="https://zenmux.ai/console"
+                          target="_blank"
+                          className="text-blue-600 hover:underline">
+                          ZenMux Console
+                        </a>{" "}
+                        获取 API Key
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        ZenMux 模型选择
+                      </label>
+                      <input
+                        type="text"
+                        value={settings.zenmuxModel ?? ""}
+                        onChange={(e) =>
+                          setSettings({ ...settings, zenmuxModel: e.target.value })
+                        }
+                        placeholder="例如: xiaomi/mimo-v2-flash"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <p className="mt-2 text-xs text-gray-500">
+                        💡 模型格式: <code className="bg-gray-100 px-1 rounded">provider/model-name</code>
+                      </p>
+                      
+                      {/* 限免模型快速选择 */}
+                      <div className="mt-3">
+                        <p className="text-xs font-medium text-gray-600 mb-2">🎁 限免模型快速选择</p>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => setSettings({ ...settings, zenmuxModel: "xiaomi/mimo-v2-flash" })}
+                            className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${
+                              settings.zenmuxModel === "xiaomi/mimo-v2-flash"
+                                ? "text-white"
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            }`}
+                            style={settings.zenmuxModel === "xiaomi/mimo-v2-flash" ? { backgroundColor: '#2478AE' } : {}}>
+                            mimo-v2-flash
+                            <span className="px-1.5 py-0.5 bg-green-500 text-white rounded text-[10px]">限免</span>
+                          </button>
+                          <button
+                            onClick={() => setSettings({ ...settings, zenmuxModel: "kuaishou/kat-coder-pro-v1" })}
+                            className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${
+                              settings.zenmuxModel === "kuaishou/kat-coder-pro-v1"
+                                ? "text-white"
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            }`}
+                            style={settings.zenmuxModel === "kuaishou/kat-coder-pro-v1" ? { backgroundColor: '#2478AE' } : {}}>
+                            kat-coder-pro
+                            <span className="px-1.5 py-0.5 bg-green-500 text-white rounded text-[10px]">限免</span>
+                          </button>
+                          <button
+                            onClick={() => setSettings({ ...settings, zenmuxModel: "z-ai/glm-4.6v-flash" })}
+                            className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${
+                              settings.zenmuxModel === "z-ai/glm-4.6v-flash"
+                                ? "text-white"
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            }`}
+                            style={settings.zenmuxModel === "z-ai/glm-4.6v-flash" ? { backgroundColor: '#2478AE' } : {}}>
+                            glm-4.6v-flash
+                            <span className="px-1.5 py-0.5 bg-green-500 text-white rounded text-[10px]">限免</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <p className="mt-2 text-xs text-gray-500">
+                        查看所有支持的模型:{" "}
+                        <a
+                          href="https://zenmux.ai/models"
+                          target="_blank"
+                          className="text-blue-600 hover:underline">
+                          ZenMux Models
+                        </a>
+                      </p>
+                    </div>
+                  </>
                 )}
               </div>
             )}

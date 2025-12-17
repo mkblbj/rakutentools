@@ -1,0 +1,146 @@
+{
+  "version": "0.1.1",
+  "exportDate": "2025-12-14T08:00:00.000Z",
+  "shops": [
+    {
+      "shopName": "テスト店舗1",
+      "loginId": "test-login-id-1",
+      "loginPass": "test-login-pass-1",
+      "userId": "test-user-id-1",
+      "userPass": "test-user-pass-1"
+    },
+    {
+      "shopName": "テスト店舗2",
+      "loginId": "test-login-id-2",
+      "loginPass": "test-login-pass-2",
+      "userId": "test-user-id-2",
+      "userPass": "test-user-pass-2"
+    },
+    {
+      "shopName": "",
+      "loginId": "",
+      "loginPass": "",
+      "userId": "",
+      "userPass": ""
+    },
+    {
+      "shopName": "",
+      "loginId": "",
+      "loginPass": "",
+      "userId": "",
+      "userPass": ""
+    },
+    {
+      "shopName": "",
+      "loginId": "",
+      "loginPass": "",
+      "userId": "",
+      "userPass": ""
+    },
+    {
+      "shopName": "",
+      "loginId": "",
+      "loginPass": "",
+      "userId": "",
+      "userPass": ""
+    },
+    {
+      "shopName": "",
+      "loginId": "",
+      "loginPass": "",
+      "userId": "",
+      "userPass": ""
+    },
+    {
+      "shopName": "",
+      "loginId": "",
+      "loginPass": "",
+      "userId": "",
+      "userPass": ""
+    },
+    {
+      "shopName": "",
+      "loginId": "",
+      "loginPass": "",
+      "userId": "",
+      "userPass": ""
+    },
+    {
+      "shopName": "",
+      "loginId": "",
+      "loginPass": "",
+      "userId": "",
+      "userPass": ""
+    },
+    {
+      "shopName": "",
+      "loginId": "",
+      "loginPass": "",
+      "userId": "",
+      "userPass": ""
+    },
+    {
+      "shopName": "",
+      "loginId": "",
+      "loginPass": "",
+      "userId": "",
+      "userPass": ""
+    },
+    {
+      "shopName": "",
+      "loginId": "",
+      "loginPass": "",
+      "userId": "",
+      "userPass": ""
+    },
+    {
+      "shopName": "",
+      "loginId": "",
+      "loginPass": "",
+      "userId": "",
+      "userPass": ""
+    },
+    {
+      "shopName": "",
+      "loginId": "",
+      "loginPass": "",
+      "userId": "",
+      "userPass": ""
+    },
+    {
+      "shopName": "",
+      "loginId": "",
+      "loginPass": "",
+      "userId": "",
+      "userPass": ""
+    },
+    {
+      "shopName": "",
+      "loginId": "",
+      "loginPass": "",
+      "userId": "",
+      "userPass": ""
+    },
+    {
+      "shopName": "",
+      "loginId": "",
+      "loginPass": "",
+      "userId": "",
+      "userPass": ""
+    },
+    {
+      "shopName": "",
+      "loginId": "",
+      "loginPass": "",
+      "userId": "",
+      "userPass": ""
+    },
+    {
+      "shopName": "",
+      "loginId": "",
+      "loginPass": "",
+      "userId": "",
+      "userPass": ""
+    }
+  ]
+}

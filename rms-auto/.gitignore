@@ -1,0 +1,38 @@
+# Build outputs
+build/
+dist/
+
+# Plasmo
+.plasmo/
+
+# User data (exported JSON files with sensitive information)
+rms-login-data-*.json
+!example-export.json
+
+# Dependencies
+node_modules/
+.pnpm/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Package manager
+pnpm-lock.yaml
+package-lock.json
+yarn.lock

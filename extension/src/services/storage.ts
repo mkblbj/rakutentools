@@ -285,6 +285,7 @@ https://ichiba.faq.rakuten.net/detail/000006734
 const DEFAULT_SETTINGS: UserSettings = {
   provider: "openai",
   geminiModel: "gemini-2.5-flash",
+  zenmuxModel: "openai/gpt-4o-mini", // ZenMux 默认模型
   enabled: true,
   reviewPrompt: DEFAULT_REVIEW_PROMPT,
   inquiryPrompt: DEFAULT_INQUIRY_PROMPT,
@@ -303,8 +304,10 @@ export class StorageService {
         [
           "openaiKey",
           "geminiKey",
+          "zenmuxKey",
           "provider",
           "geminiModel",
+          "zenmuxModel",
           "reviewPrompt",
           "inquiryPrompt",
           "enabled",
@@ -341,7 +344,16 @@ export class StorageService {
    */
   static async getApiKey(provider: ProviderType): Promise<string | undefined> {
     const settings = await this.getSettings()
-    return provider === "openai" ? settings.openaiKey : settings.geminiKey
+    switch (provider) {
+      case "openai":
+        return settings.openaiKey
+      case "gemini":
+        return settings.geminiKey
+      case "zenmux":
+        return settings.zenmuxKey
+      default:
+        return undefined
+    }
   }
 
   /**
@@ -355,7 +367,7 @@ export class StorageService {
   /**
    * 获取 Gemini 模型
    */
-  static async getGeminiModel(): Promise<"gemini-2.5-flash" | "gemini-2.5-flash-lite" | "gemini-2.0-flash-lite"> {
+  static async getGeminiModel(): Promise<"gemini-3-pro-preview" | "gemini-2.5-flash" | "gemini-2.5-flash-lite" | "gemini-2.0-flash-lite"> {
     const settings = await this.getSettings()
     return settings.geminiModel || "gemini-2.5-flash"
   }
@@ -363,10 +375,25 @@ export class StorageService {
   /**
    * 设置 Gemini 模型
    */
-  static async setGeminiModel(model: "gemini-2.5-flash" | "gemini-2.5-flash-lite" | "gemini-2.0-flash-lite"): Promise<void> {
+  static async setGeminiModel(model: "gemini-3-pro-preview" | "gemini-2.5-flash" | "gemini-2.5-flash-lite" | "gemini-2.0-flash-lite"): Promise<void> {
     const settings = await this.getSettings()
     settings.geminiModel = model
     await this.saveSettings(settings)
+  }
+
+  /**
+   * 获取 ZenMux 模型
+   */
+  static async getZenMuxModel(): Promise<string> {
+    const settings = await this.getSettings()
+    return settings.zenmuxModel || "openai/gpt-4o-mini"
+  }
+
+  /**
+   * 设置 ZenMux 模型
+   */
+  static async setZenMuxModel(model: string): Promise<void> {
+    await this.saveSettings({ zenmuxModel: model })
   }
 
   /**
