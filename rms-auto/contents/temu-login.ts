@@ -11,6 +11,8 @@ interface TemuShop {
   password: string
 }
 
+let hasExecuted = false
+
 const getShopNo = (): string | null => {
   const url = new URL(window.location.href)
   const shopNo = url.searchParams.get("temuShopNo")
@@ -38,6 +40,13 @@ const clickAccountLoginTab = (): Promise<boolean> => {
 }
 
 const autoFillLogin = async () => {
+  // 防止重复执行
+  if (hasExecuted) {
+    console.log("[TEMU Auto Login] Already executed, skipping")
+    return
+  }
+  hasExecuted = true
+  
   console.log("[TEMU Auto Login] Script loaded, URL:", window.location.href)
   
   const shopNo = getShopNo()
