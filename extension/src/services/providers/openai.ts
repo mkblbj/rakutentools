@@ -13,17 +13,15 @@ export class OpenAIProvider implements LLMProvider {
     this.apiKey = config.apiKey
     this.model = config.model || "gpt-4o-mini"
     this.temperature = config.temperature ?? 0.7
-    // 日语需要更多 tokens
-    this.maxTokens = config.maxTokens || 2000
+    this.maxTokens = config.maxTokens || 4000 // 增加到 4000
   }
 
-  /**
-   * 生成回复
-   */
   async generateReply(prompt: string): Promise<string> {
     if (!this.apiKey) {
       throw new Error("OpenAI API Key 未配置")
     }
+
+    console.log(`🤖 调用 OpenAI API - 模型: ${this.model}`)
 
     try {
       const response = await fetch(
@@ -61,6 +59,8 @@ export class OpenAIProvider implements LLMProvider {
       if (!content) {
         throw new Error("OpenAI 返回的内容为空")
       }
+
+      console.log(`✅ OpenAI 回复成功 - 模型: ${this.model}, 长度: ${content.length} 字符`)
 
       return content.trim()
     } catch (error) {

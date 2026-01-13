@@ -1,7 +1,7 @@
 {
   "name": "rms-auto-login",
   "displayName": "RMSログイン自動化",
-  "version": "0.1.1",
+  "version": "0.1.4",
   "description": "RMSのログインをできるだけ自動化してみる",
   "author": "",
   "scripts": {
@@ -28,10 +28,12 @@
     "typescript": "5.3.3"
   },
   "manifest": {
-    "permissions": ["storage"],
+    "permissions": ["storage", "clipboardRead", "clipboardWrite"],
     "host_permissions": [
       "https://glogin.rms.rakuten.co.jp/*",
-      "https://mainmenu.rms.rakuten.co.jp/*"
+      "https://mainmenu.rms.rakuten.co.jp/*",
+      "https://manager.wowma.jp/*",
+      "https://seller.kuajingmaihuo.com/*"
     ]
   }
 }

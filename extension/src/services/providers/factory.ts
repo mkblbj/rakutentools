@@ -1,7 +1,9 @@
 import type { LLMProvider, ProviderType, ProviderConfig } from "~types"
+import { CustomProvider } from "./custom"
 import { OpenAIProvider } from "./openai"
 import { GeminiProvider } from "./gemini"
 import { ZenMuxProvider } from "./zenmux"
+import { ManusProvider } from "./manus"
 import { StorageService } from "../storage"
 
 /**
@@ -25,11 +27,18 @@ export class ModelFactory {
 
     const config: ProviderConfig = {
       apiKey: key,
-      temperature: 0.7, // 标准 temperature
-      maxTokens: 2000, // 日语需要更多 tokens（100-500字需要约1000-2000 tokens）
+      temperature: 0.7,
+      maxTokens: 4000, // 增加到 4000，避免大模型输出被截断
     }
 
     switch (provider) {
+      case "custom":
+        // 获取 Custom API 配置
+        const customBaseUrl = await StorageService.getCustomBaseUrl()
+        const customModel = await StorageService.getCustomModel()
+        config.baseURL = customBaseUrl
+        config.model = customModel
+        return new CustomProvider(config)
       case "openai":
         return new OpenAIProvider(config)
       case "gemini":
@@ -42,6 +51,11 @@ export class ModelFactory {
         const zenmuxModel = await StorageService.getZenMuxModel()
         config.model = zenmuxModel
         return new ZenMuxProvider(config)
+      case "manus":
+        // 获取用户选择的 Manus 模型
+        const manusModel = await StorageService.getManusModel()
+        config.model = manusModel
+        return new ManusProvider(config)
       default:
         throw new Error(`不支持的 Provider: ${provider}`)
     }

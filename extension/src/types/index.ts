@@ -3,16 +3,18 @@ export interface UserSettings {
   openaiKey?: string
   geminiKey?: string
   zenmuxKey?: string // ZenMux API Key
-  provider: "openai" | "gemini" | "zenmux"
+  manusKey?: string // Manus API Key
+  provider: "openai" | "gemini" | "zenmux" | "manus"
   geminiModel?: "gemini-3-pro-preview" | "gemini-2.5-flash" | "gemini-2.5-flash-lite" | "gemini-2.0-flash-lite" // Gemini 模型选择
   zenmuxModel?: string // ZenMux 模型，格式: "provider/model-name"
+  manusModel?: string // Manus 模型
   reviewPrompt?: string
   inquiryPrompt?: string
   enabled: boolean
 }
 
 // AI Provider 类型
-export type ProviderType = "openai" | "gemini" | "zenmux"
+export type ProviderType = "custom" | "openai" | "gemini" | "zenmux" | "manus"
 
 // 评论上下文
 export interface ReviewContext {
@@ -32,6 +34,7 @@ export interface InquiryContext {
   receivedTime?: string
   productName?: string
   conversationHistory?: string
+  userInstruction?: string // 用户主观输入的指示（如"明日发货"、"追踪号12345"）
 }
 
 // 生成请求类型

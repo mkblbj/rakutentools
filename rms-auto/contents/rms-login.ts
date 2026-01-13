@@ -65,8 +65,23 @@ const autoFillLogin = async () => {
   const shopNo = getShopNo()
   console.log("[RMS Auto Login] ShopNo:", shopNo)
   
-  if (!shopNo) {
-    console.log("[RMS Auto Login] No shopNo in URL")
+  // 检查是否是登录页面（有输入框）
+  const hasLoginInputs = document.querySelector("input#rlogin-username-ja") || 
+                         document.querySelector("input#rlogin-username-2-ja")
+  
+  // 如果是登录页面但没有 shopNo，不做任何事情（让用户手动输入）
+  if (hasLoginInputs && !shopNo) {
+    console.log("[RMS Auto Login] Login page without shopNo, skipping auto-fill")
+    return
+  }
+  
+  // 如果不是登录页面（没有输入框），检查是否有"次へ"按钮需要点击
+  if (!hasLoginInputs) {
+    const submitBtn = document.querySelector<HTMLButtonElement>("button[name='submit']")
+    if (submitBtn && submitBtn.textContent?.trim() === "次へ") {
+      console.log("[RMS Auto Login] Confirmation page, clicking '次へ' in 300ms")
+      setTimeout(() => submitBtn.click(), 300)
+    }
     return
   }
 
@@ -100,11 +115,12 @@ const autoFillLogin = async () => {
 
       if (passwordInput && submitBtn) {
         console.log("[RMS Auto Login] Filling R-Login credentials")
-        // 修改 form action 以保留 shopNo 参数
-        if (form) {
-          const currentAction = form.action
+        // 修改 form action 以保留 shopNo 参数（像旧版一样直接追加）
+        if (form && form.action) {
+          const currentAction = form.getAttribute("action") || ""
           if (!currentAction.includes("shopNo=")) {
-            form.action = `${currentAction}${currentAction.includes("?") ? "&" : "?"}shopNo=${shopNo}`
+            form.setAttribute("action", currentAction + "?shopNo=" + shopNo)
+            console.log("[RMS Auto Login] Updated form action:", form.getAttribute("action"))
           }
         }
 
@@ -148,8 +164,12 @@ const autoFillLogin = async () => {
     const submitBtn = document.querySelector<HTMLButtonElement>(
       "button[name='submit']"
     )
-    if (submitBtn && submitBtn.textContent === "次へ") {
-      setTimeout(() => submitBtn.click(), 100)
+    if (submitBtn && submitBtn.textContent?.trim() === "次へ") {
+      console.log("[RMS Auto Login] Found '次へ' button, clicking in 500ms")
+      setTimeout(() => {
+        console.log("[RMS Auto Login] Clicking '次へ' button")
+        submitBtn.click()
+      }, 500)
     }
   } catch (error) {
     console.error("Error in autoFillLogin:", error)

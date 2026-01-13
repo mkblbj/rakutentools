@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# UO Rakutentools - 构建所有版本
+# RMS Auto Login - 构建所有版本
 # 用途：一次性构建 Chrome 和 Firefox 生产版本
 
-echo "🚀 开始构建 UO Rakutentools..."
+echo "🚀 开始构建 RMS Auto Login..."
 echo ""
 
 # 1. 清理旧的构建文件
@@ -37,12 +37,12 @@ echo ""
 echo "📦 打包所有版本..."
 cd build
 if [ -d "chrome-mv3-prod" ]; then
-    zip -r uo-rakutentools-chrome.zip chrome-mv3-prod/
-    echo "✅ Chrome 打包完成: build/uo-rakutentools-chrome.zip"
+    zip -r rms-auto-login-chrome.zip chrome-mv3-prod/
+    echo "✅ Chrome 打包完成: build/rms-auto-login-chrome.zip"
 fi
 if [ -d "firefox-mv2-prod" ]; then
-    zip -r uo-rakutentools-firefox.zip firefox-mv2-prod/
-    echo "✅ Firefox 打包完成: build/uo-rakutentools-firefox.zip"
+    zip -r rms-auto-login-firefox.zip firefox-mv2-prod/
+    echo "✅ Firefox 打包完成: build/rms-auto-login-firefox.zip"
 fi
 cd ..
 
@@ -55,5 +55,8 @@ ls -lh build/*.zip 2>/dev/null || echo "  (未生成打包文件)"
 echo ""
 echo "📂 构建目录："
 ls -d build/*-prod/ 2>/dev/null || echo "  (未生成构建目录)"
-
+echo ""
+echo "💡 提示："
+echo "  - Chrome 版本: build/chrome-mv3-prod/ (或 .zip)"
+echo "  - Firefox 版本: build/firefox-mv2-prod/ (或 .zip)"
 

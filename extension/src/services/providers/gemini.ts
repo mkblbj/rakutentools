@@ -27,13 +27,12 @@ export class GeminiProvider implements LLMProvider {
     this.maxTokens = config.maxTokens || 4000
   }
 
-  /**
-   * 生成回复
-   */
   async generateReply(prompt: string): Promise<string> {
     if (!this.apiKey) {
       throw new Error("Gemini API Key 未配置")
     }
+
+    console.log(`🤖 调用 Gemini API - 模型: ${this.model}`)
 
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`
@@ -73,6 +72,8 @@ export class GeminiProvider implements LLMProvider {
       if (!content) {
         throw new Error("Gemini 返回的内容为空")
       }
+
+      console.log(`✅ Gemini 回复成功 - 模型: ${this.model}, 长度: ${content.length} 字符`)
 
       return content.trim()
     } catch (error) {

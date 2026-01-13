@@ -6,9 +6,11 @@ import type { ProviderType, UserSettings } from "~types"
 function IndexPopup() {
   const [isEnabled, setIsEnabled] = useState(true)
   const [status, setStatus] = useState("就绪")
-  const [provider, setProvider] = useState<ProviderType>("openai")
+  const [provider, setProvider] = useState<ProviderType>("custom")
   const [geminiModel, setGeminiModel] = useState<"gemini-3-pro-preview" | "gemini-2.5-flash" | "gemini-2.5-flash-lite" | "gemini-2.0-flash-lite">("gemini-2.5-flash")
   const [zenmuxModel, setZenmuxModel] = useState<string>("openai/gpt-4o-mini")
+  const [manusModel, setManusModel] = useState<string>("manus-1.6")
+  const [customModel, setCustomModel] = useState<string>("")
   const [settings, setSettings] = useState<UserSettings | null>(null)
 
   useEffect(() => {
@@ -20,6 +22,8 @@ function IndexPopup() {
       setProvider(loadedSettings.provider)
       setGeminiModel(loadedSettings.geminiModel || "gemini-2.5-flash")
       setZenmuxModel(loadedSettings.zenmuxModel || "openai/gpt-4o-mini")
+      setManusModel(loadedSettings.manusModel || "manus-1.6")
+      setCustomModel(loadedSettings.customModel || "")
     })
   }, [])
 
@@ -47,6 +51,11 @@ function IndexPopup() {
   const handleZenmuxModelChange = async (model: string) => {
     setZenmuxModel(model)
     await StorageService.saveSettings({ zenmuxModel: model })
+  }
+
+  const handleManusModelChange = async (model: string) => {
+    setManusModel(model)
+    await StorageService.saveSettings({ manusModel: model })
   }
 
   return (
@@ -92,10 +101,30 @@ function IndexPopup() {
         {/* AI Provider 选择 */}
         <div className="p-3 bg-gray-50 rounded-lg">
           <p className="text-sm font-medium text-gray-700 mb-2">AI 模型</p>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              onClick={() => handleProviderChange("custom")}
+              className={`py-2 px-2 rounded-lg text-xs font-medium transition-colors ${
+                provider === "custom"
+                  ? "text-white"
+                  : "bg-white text-gray-600 hover:bg-gray-100"
+              }`}
+              style={provider === "custom" ? { backgroundColor: '#2478AE' } : {}}>
+              🔧 Custom
+            </button>
+            <button
+              onClick={() => handleProviderChange("manus")}
+              className={`py-2 px-2 rounded-lg text-xs font-medium transition-colors ${
+                provider === "manus"
+                  ? "text-white"
+                  : "bg-white text-gray-600 hover:bg-gray-100"
+              }`}
+              style={provider === "manus" ? { backgroundColor: '#2478AE' } : {}}>
+              🤖 Manus
+            </button>
             <button
               onClick={() => handleProviderChange("openai")}
-              className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-colors ${
+              className={`py-2 px-2 rounded-lg text-xs font-medium transition-colors ${
                 provider === "openai"
                   ? "text-white"
                   : "bg-white text-gray-600 hover:bg-gray-100"
@@ -105,7 +134,7 @@ function IndexPopup() {
             </button>
             <button
               onClick={() => handleProviderChange("gemini")}
-              className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-colors ${
+              className={`py-2 px-2 rounded-lg text-xs font-medium transition-colors ${
                 provider === "gemini"
                   ? "text-white"
                   : "bg-white text-gray-600 hover:bg-gray-100"
@@ -115,16 +144,68 @@ function IndexPopup() {
             </button>
             <button
               onClick={() => handleProviderChange("zenmux")}
-              className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-colors ${
+              className={`py-2 px-2 rounded-lg text-xs font-medium transition-colors col-span-2 ${
                 provider === "zenmux"
                   ? "text-white"
                   : "bg-white text-gray-600 hover:bg-gray-100"
               }`}
               style={provider === "zenmux" ? { backgroundColor: '#2478AE' } : {}}>
-              ZenMux
+              🌐 ZenMux
             </button>
           </div>
         </div>
+
+        {/* Custom 模型显示 - 只在选择 Custom 时显示 */}
+        {provider === "custom" && (
+          <div className="p-3 bg-gray-50 rounded-lg">
+            <p className="text-sm font-medium text-gray-700 mb-2">自定义模型</p>
+            <p className="text-xs text-gray-500 mb-2">
+              当前: {customModel || "未设置"}
+            </p>
+            <p className="text-xs text-gray-400">
+              在完整设置中配置 Base URL 和模型
+            </p>
+          </div>
+        )}
+
+        {/* Manus 模型选择 - 只在选择 Manus 时显示 */}
+        {provider === "manus" && (
+          <div className="p-3 bg-gray-50 rounded-lg">
+            <p className="text-sm font-medium text-gray-700 mb-2">Manus 版本</p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => handleManusModelChange("manus-1.6")}
+                className={`py-2 px-3 rounded-lg text-xs font-medium transition-colors ${
+                  manusModel === "manus-1.6"
+                    ? "text-white"
+                    : "bg-white text-gray-600 hover:bg-gray-100"
+                }`}
+                style={manusModel === "manus-1.6" ? { backgroundColor: '#2478AE' } : {}}>
+                manus-1.6
+              </button>
+              <button
+                onClick={() => handleManusModelChange("manus-1.6-lite")}
+                className={`py-2 px-3 rounded-lg text-xs font-medium transition-colors ${
+                  manusModel === "manus-1.6-lite"
+                    ? "text-white"
+                    : "bg-white text-gray-600 hover:bg-gray-100"
+                }`}
+                style={manusModel === "manus-1.6-lite" ? { backgroundColor: '#2478AE' } : {}}>
+                manus-1.6-lite
+              </button>
+              <button
+                onClick={() => handleManusModelChange("manus-1.6-max")}
+                className={`py-2 px-3 rounded-lg text-xs font-medium transition-colors ${
+                  manusModel === "manus-1.6-max"
+                    ? "text-white"
+                    : "bg-white text-gray-600 hover:bg-gray-100"
+                }`}
+                style={manusModel === "manus-1.6-max" ? { backgroundColor: '#2478AE' } : {}}>
+                🚀 manus-1.6-max
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Gemini 模型选择 - 只在选择 Gemini 时显示 */}
         {provider === "gemini" && (

@@ -54,10 +54,12 @@ async function handleGenerateReply(
 
     // 2. 获取当前 Provider 和 API Key
     const provider = await StorageService.getProvider()
+    console.log("🔍 当前选择的 Provider:", provider)
+    
     const hasApiKey = await StorageService.validateApiKey(provider)
     
     if (!hasApiKey) {
-      throw new Error(`请先配置 ${provider === "openai" ? "OpenAI" : "Gemini"} API Key`)
+      throw new Error(`请先配置 ${provider === "openai" ? "OpenAI" : provider === "gemini" ? "Gemini" : provider === "zenmux" ? "ZenMux" : "Custom"} API Key`)
     }
 
     // 3. 获取对应的 Prompt 模板
@@ -68,7 +70,11 @@ async function handleGenerateReply(
 
     // 5. 创建 Provider 并调用 AI
     const llmProvider = await ModelFactory.createCurrentProvider()
+    console.log("🚀 开始调用 AI Provider:", provider)
+    
     const reply = await llmProvider.generateReply(prompt)
+    
+    console.log("✅ AI 回复生成成功，Provider:", provider)
 
     return {
       success: true,
@@ -93,10 +99,6 @@ function buildPrompt(
 ): string {
   let prompt = template
 
-  // 为评价回复随机选择模板编号（1-5）
-  const templateNumber = Math.floor(Math.random() * 5) + 1
-  prompt = prompt.replace(/\{\{template_number\}\}/g, templateNumber.toString())
-
   if (type === "review") {
     const reviewContext = context as ReviewContext
     prompt = prompt
@@ -115,6 +117,7 @@ function buildPrompt(
       .replace(/\{\{received_time\}\}/g, inquiryContext.receivedTime || "")
       .replace(/\{\{product_name\}\}/g, inquiryContext.productName || "")
       .replace(/\{\{conversation_history\}\}/g, inquiryContext.conversationHistory || "")
+      .replace(/\{\{user_instruction\}\}/g, inquiryContext.userInstruction || "（なし）")
   }
 
   return prompt

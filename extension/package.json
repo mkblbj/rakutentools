@@ -36,7 +36,12 @@
     "host_permissions": [
       "https://*.rakuten.co.jp/*",
       "https://api.openai.com/*",
-      "https://generativelanguage.googleapis.com/*"
+      "https://generativelanguage.googleapis.com/*",
+      "https://open.manus.im/*",
+      "https://api.manus.im/*",
+      "https://api.zenmux.ai/*",
+      "http://*/*",
+      "https://*/*"
     ]
   },
   "packageManager": "pnpm@10.12.1"

@@ -21,20 +21,17 @@ export class ZenMuxProvider implements LLMProvider {
 
   constructor(config: ProviderConfig) {
     this.apiKey = config.apiKey
-    // 默认使用 GPT-4o-mini，性价比高
     this.model = config.model || "xiaomi/mimo-v2-flash"
     this.temperature = config.temperature ?? 0.7
-    // 日语需要更多 tokens
-    this.maxTokens = config.maxTokens || 2000
+    this.maxTokens = config.maxTokens || 4000 // 增加到 4000
   }
 
-  /**
-   * 生成回复
-   */
   async generateReply(prompt: string): Promise<string> {
     if (!this.apiKey) {
       throw new Error("ZenMux API Key 未配置")
     }
+
+    console.log(`🤖 调用 ZenMux API - 模型: ${this.model}`)
 
     try {
       const response = await fetch(
@@ -72,6 +69,8 @@ export class ZenMuxProvider implements LLMProvider {
       if (!content) {
         throw new Error("ZenMux 返回的内容为空")
       }
+
+      console.log(`✅ ZenMux 回复成功 - 模型: ${this.model}, 长度: ${content.length} 字符`)
 
       return content.trim()
     } catch (error) {
