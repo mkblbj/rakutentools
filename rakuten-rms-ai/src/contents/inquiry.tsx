@@ -1,4 +1,4 @@
-import type { PlasmoCSConfig, PlasmoGetInlineAnchor } from "plasmo"
+import type { PlasmoCSConfig } from "plasmo"
 import { useState } from "react"
 import { extractInquiryData } from "~utils/dom-selectors"
 import type { GenerateResponse, InquiryContext } from "~types"
@@ -10,7 +10,7 @@ export const config: PlasmoCSConfig = {
 }
 
 // 获取注入按钮的位置（楽天「AIで回答文を生成」按钮的容器右边）
-export const getInlineAnchor: PlasmoGetInlineAnchor = async () => {
+export const getInlineAnchor = async () => {
   // 等待页面加载完成
   await new Promise((resolve) => setTimeout(resolve, 1000))
 
@@ -22,12 +22,12 @@ export const getInlineAnchor: PlasmoGetInlineAnchor = async () => {
   })
 
   if (rakutenAIButton) {
-    // 获取按钮的父容器（e637），我们要插入到这个容器的后面
+    // 获取按钮的父容器，我们要插入到这个容器的后面
     const parentContainer = rakutenAIButton.parentElement
     if (parentContainer) {
       return {
         element: parentContainer,
-        insertPosition: "afterend",
+        insertPosition: "afterend" as const,
       }
     }
   }
@@ -42,11 +42,12 @@ export const getInlineAnchor: PlasmoGetInlineAnchor = async () => {
   if (replyTextarea) {
     return {
       element: replyTextarea,
-      insertPosition: "beforebegin",
+      insertPosition: "beforebegin" as const,
     }
   }
 
-  return null
+  // 返回 body 作为 fallback，避免返回 null
+  return document.body
 }
 
 // 获取 Shadow Host 的样式
