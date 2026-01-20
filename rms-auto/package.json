@@ -31,6 +31,7 @@
     "permissions": ["storage", "clipboardRead", "clipboardWrite"],
     "host_permissions": [
       "https://glogin.rms.rakuten.co.jp/*",
+      "https://login.account.rakuten.com/*",
       "https://mainmenu.rms.rakuten.co.jp/*",
       "https://manager.wowma.jp/*",
       "https://seller.kuajingmaihuo.com/*"

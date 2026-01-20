@@ -65,6 +65,16 @@ const autoFillLogin = async () => {
   const shopNo = getShopNo()
   console.log("[RMS Auto Login] ShopNo:", shopNo)
   
+  // 保存 shopNo 到 chrome.storage.local，供乐天会员登录页面使用（跨域共享）
+  if (shopNo) {
+    try {
+      await chrome.storage.local.set({ rms_auto_current_shopno: shopNo })
+      console.log("[RMS Auto Login] Saved shopNo to chrome.storage:", shopNo)
+    } catch (e) {
+      console.error("[RMS Auto Login] Failed to save shopNo:", e)
+    }
+  }
+  
   // 检查是否是登录页面（有输入框）
   const hasLoginInputs = document.querySelector("input#rlogin-username-ja") || 
                          document.querySelector("input#rlogin-username-2-ja")
