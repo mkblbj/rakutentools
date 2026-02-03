@@ -1,280 +1,181 @@
 import type { PlasmoCSConfig } from "plasmo"
-import { useState } from "react"
-import { extractInquiryData } from "~utils/dom-selectors"
-import type { GenerateResponse, InquiryContext } from "~types"
+import { useState, useEffect } from "react"
+import { createRoot } from "react-dom/client"
+import { extractInquiryData, type InquiryData } from "~utils/dom-selectors"
+import { InquiryPanel } from "./inquiry-panel"
 
-// 匹配 Rakuten R-Messe 页面
+// 匹配 Rakuten R-Messe 问询详情页
 export const config: PlasmoCSConfig = {
-  matches: ["https://rmesse.rms.rakuten.co.jp/*"],
+  matches: ["https://rmesse.rms.rakuten.co.jp/inquiry/*"],
   all_frames: false,
 }
 
-// 获取注入按钮的位置（楽天「AIで回答文を生成」按钮的容器右边）
-export const getInlineAnchor = async () => {
-  // 等待页面加载完成
-  await new Promise((resolve) => setTimeout(resolve, 1000))
+// 面板容器（挂载到 body，独立于按钮）
+let panelContainer: HTMLDivElement | null = null
+let panelRoot: ReturnType<typeof createRoot> | null = null
+let panelShadowRoot: ShadowRoot | null = null
 
-  // 查找楽天的「AIで回答文を生成」按钮
-  const buttons = Array.from(document.querySelectorAll("button"))
-  const rakutenAIButton = buttons.find((btn) => {
-    const text = btn.textContent || ""
-    return text.includes("AIで回答文を生成")
-  })
+// 创建面板容器
+const createPanelContainer = () => {
+  if (panelContainer) return
 
-  if (rakutenAIButton) {
-    // 获取按钮的父容器，我们要插入到这个容器的后面
-    const parentContainer = rakutenAIButton.parentElement
-    if (parentContainer) {
-      return {
-        element: parentContainer,
-        insertPosition: "afterend" as const,
-      }
-    }
-  }
+  panelContainer = document.createElement("div")
+  panelContainer.id = "uo-inquiry-panel-container"
+  document.body.appendChild(panelContainer)
 
-  // 备选：如果找不到楽天按钮，找回复输入框
-  const textareas = Array.from(document.querySelectorAll<HTMLTextAreaElement>("textarea"))
-  const replyTextarea = textareas.find((ta) => {
-    const placeholder = ta.placeholder || ta.getAttribute("placeholder") || ""
-    return placeholder.includes("返信") || placeholder.includes("記入")
-  })
+  // 使用 Shadow DOM 隔离样式
+  panelShadowRoot = panelContainer.attachShadow({ mode: "open" })
 
-  if (replyTextarea) {
-    return {
-      element: replyTextarea,
-      insertPosition: "beforebegin" as const,
-    }
-  }
-
-  // 返回 body 作为 fallback，避免返回 null
-  return document.body
-}
-
-// 获取 Shadow Host 的样式
-export const getStyle = () => {
+  // 添加基础样式
   const style = document.createElement("style")
   style.textContent = `
-    #plasmo-inline {
-      display: inline-flex;
-      vertical-align: middle;
-      margin-left: 8px;
-      z-index: 9999;
+    :host {
+      all: initial;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 0;
+      height: 0;
+      z-index: 2147483647;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     }
   `
-  return style
+  panelShadowRoot.appendChild(style)
+
+  // 创建 React 根节点
+  const rootDiv = document.createElement("div")
+  panelShadowRoot.appendChild(rootDiv)
+  panelRoot = createRoot(rootDiv)
 }
 
-// UO AI 按钮组件
+// 渲染面板
+const renderPanel = (isOpen: boolean, inquiryData: InquiryData | null, onClose: () => void) => {
+  if (!panelRoot || !panelShadowRoot) return
+
+  if (isOpen) {
+    panelRoot.render(
+      <InquiryPanel
+        shadowRoot={panelShadowRoot}
+        inquiryData={inquiryData}
+        onClose={onClose}
+      />
+    )
+  } else {
+    panelRoot.render(null)
+  }
+}
+
+// UO AI 悬浮球组件
 const InquiryAIButton = () => {
-  const [loading, setLoading] = useState(false)
-  const [status, setStatus] = useState<string>("")
-  const [userInstruction, setUserInstruction] = useState<string>("")
+  const [isPanelOpen, setIsPanelOpen] = useState(false)
+  const [inquiryData, setInquiryData] = useState<InquiryData | null>(null)
+  const [isMinimized, setIsMinimized] = useState(false)
 
-  const handleGenerateReply = async () => {
-    if (loading) {
-      console.log("⚠️ 已经在生成中，忽略重复点击")
-      return
-    }
+  // 初始化面板容器
+  useEffect(() => {
+    createPanelContainer()
+    // 提取问询数据
+    const data = extractInquiryData()
+    setInquiryData(data)
     
-    setLoading(true)
-    setStatus("🤖 AI 生成中...")
-    console.log("🎯 开始生成问询回复")
+    // 检查是否在问询详情页
+    const isInquiryDetailPage = /\/inquiry\/\d+-\d+-\d+[ot]/.test(window.location.pathname)
+    if (!isInquiryDetailPage) {
+      console.log("Not in inquiry detail page, hiding button")
+    }
+  }, [])
 
-    try {
-      // 提取问询数据
-      const inquiryData = extractInquiryData()
+  // 同步面板状态
+  useEffect(() => {
+    renderPanel(isPanelOpen, inquiryData, () => setIsPanelOpen(false))
+  }, [isPanelOpen, inquiryData])
 
-      if (!inquiryData) {
-        setStatus("❌ 问询数据提取失败")
-        setTimeout(() => setStatus(""), 3000)
-        setLoading(false)
-        return
-      }
-
-      if (!inquiryData.inquiryContent) {
-        setStatus("❌ 未找到问询内容")
-        setTimeout(() => setStatus(""), 3000)
-        setLoading(false)
-        return
-      }
-
-      // 构建上下文（传递所有提取的数据）
-      const context: InquiryContext = {
-        inquiryContent: inquiryData.inquiryContent,
-        customerName: inquiryData.customerName,
-        category: inquiryData.category,
-        orderNumber: inquiryData.orderNumber,
-        inquiryNumber: inquiryData.inquiryNumber,
-        receivedTime: inquiryData.receivedTime,
-        userInstruction: userInstruction.trim() || undefined,
-      }
-
-      // 调用 Background 生成回复
-      const response: GenerateResponse = await chrome.runtime.sendMessage({
-        action: "generate_reply",
-        data: {
-          type: "inquiry",
-          context,
-        },
-      })
-
-      console.log("📨 收到 AI 回复:", response)
-
-      if (response.success && response.data) {
-        // 查找回复输入框
-        const textareas = Array.from(document.querySelectorAll<HTMLTextAreaElement>("textarea"))
-        const replyTextarea = textareas.find((ta) => {
-          const placeholder = ta.placeholder || ta.getAttribute("placeholder") || ""
-          return placeholder.includes("返信") || placeholder.includes("記入")
-        })
-
-        if (replyTextarea) {
-          // 填充回复
-          replyTextarea.value = response.data
-          replyTextarea.dispatchEvent(new Event("input", { bubbles: true }))
-          replyTextarea.dispatchEvent(new Event("change", { bubbles: true }))
-
-          // 聚焦到输入框
-          replyTextarea.focus()
-
-          setStatus("✅ 生成成功")
-          setTimeout(() => setStatus(""), 3000)
-        } else {
-          setStatus("❌ 回复输入框未找到")
-          setTimeout(() => setStatus(""), 3000)
-        }
-      } else {
-        setStatus(`❌ ${response.error || "生成失败"}`)
-        setTimeout(() => setStatus(""), 5000)
-      }
-    } catch (error: any) {
-      console.error("生成回复失败:", error)
-      setStatus(`❌ ${error.message || "通信失败"}`)
-      setTimeout(() => setStatus(""), 5000)
-    } finally {
-      setLoading(false)
+  const handleTogglePanel = () => {
+    if (isPanelOpen) {
+      setIsPanelOpen(false)
+    } else {
+      // 每次打开时重新提取数据
+      const data = extractInquiryData()
+      setInquiryData(data)
+      setIsPanelOpen(true)
     }
   }
 
+  // 悬浮球样式
   return (
     <div
       style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "6px",
-      }}>
-      {/* 按钮 - 更紧凑 */}
+        position: "fixed",
+        right: "20px",
+        top: "50%",
+        transform: "translateY(-50%)",
+        zIndex: 2147483646,
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
+      }}
+    >
+      {/* 主按钮 */}
       <button
-        onClick={handleGenerateReply}
-        disabled={loading}
+        onClick={handleTogglePanel}
+        title={isPanelOpen ? "关闭 AI 助手" : "打开 AI 助手"}
         style={{
-          padding: "6px 12px",
-          backgroundColor: loading ? "#9CA3AF" : "#2478AE",
+          width: "56px",
+          height: "56px",
+          backgroundColor: isPanelOpen ? "#1e6292" : "#2478AE",
           color: "white",
           border: "none",
-          borderRadius: "20px",
-          fontSize: "13px",
-          fontWeight: "500",
-          cursor: loading ? "not-allowed" : "pointer",
+          borderRadius: "50%",
+          fontSize: "24px",
+          cursor: "pointer",
           display: "flex",
           alignItems: "center",
-          gap: "5px",
-          transition: "all 0.2s",
-          whiteSpace: "nowrap",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+          justifyContent: "center",
+          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          boxShadow: "0 4px 12px rgba(36,120,174,0.4)",
+          position: "relative",
         }}
         onMouseEnter={(e) => {
-          if (!loading) {
-            e.currentTarget.style.backgroundColor = "#1e6292"
-            e.currentTarget.style.boxShadow = "0 2px 6px rgba(36,120,174,0.3)"
-          }
+          e.currentTarget.style.backgroundColor = "#1e6292"
+          e.currentTarget.style.transform = "scale(1.1)"
+          e.currentTarget.style.boxShadow = "0 6px 20px rgba(36,120,174,0.5)"
         }}
         onMouseLeave={(e) => {
-          if (!loading) {
-            e.currentTarget.style.backgroundColor = "#2478AE"
-            e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)"
-          }
-        }}>
-        {loading ? (
-          <>
-            <span
-              style={{
-                display: "inline-block",
-                width: "12px",
-                height: "12px",
-                border: "2px solid white",
-                borderTopColor: "transparent",
-                borderRadius: "50%",
-                animation: "spin 0.6s linear infinite",
-              }}
-            />
-            生成中
-          </>
-        ) : (
-          <>
-            <span style={{ fontSize: "14px" }}>🤖</span>
-            UO AI
-          </>
-        )}
+          e.currentTarget.style.backgroundColor = isPanelOpen ? "#1e6292" : "#2478AE"
+          e.currentTarget.style.transform = "scale(1)"
+          e.currentTarget.style.boxShadow = "0 4px 12px rgba(36,120,174,0.4)"
+        }}
+      >
+        {isPanelOpen ? "✕" : "🤖"}
       </button>
-
-      {/* 用户指示输入框 - 更紧凑 */}
-      <input
-        type="text"
-        value={userInstruction}
-        onChange={(e) => setUserInstruction(e.target.value)}
-        placeholder="追加情報（例: 明日発送）"
-        style={{
-          width: "160px",
-          padding: "6px 10px",
-          border: "1px solid #E5E7EB",
-          borderRadius: "20px",
-          fontSize: "12px",
-          outline: "none",
-          transition: "all 0.2s",
-          backgroundColor: "#F9FAFB",
-        }}
-        onFocus={(e) => {
-          e.currentTarget.style.borderColor = "#2478AE"
-          e.currentTarget.style.backgroundColor = "#fff"
-          e.currentTarget.style.width = "220px"
-        }}
-        onBlur={(e) => {
-          e.currentTarget.style.borderColor = "#E5E7EB"
-          e.currentTarget.style.backgroundColor = "#F9FAFB"
-          if (!e.currentTarget.value) {
-            e.currentTarget.style.width = "160px"
-          }
-        }}
-      />
-
-      {/* 状态 */}
-      {status && (
-        <span
-          style={{
-            fontSize: "12px",
-            color: status.includes("✅") ? "#059669" : "#DC2626",
-            fontWeight: "500",
-            padding: "4px 8px",
-            backgroundColor: status.includes("✅") ? "#ECFDF5" : "#FEF2F2",
-            borderRadius: "12px",
-          }}>
-          {status}
-        </span>
-      )}
       
-      <style>
-        {`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}
-      </style>
+      {/* 小标签 */}
+      {!isPanelOpen && (
+        <div
+          style={{
+            backgroundColor: "#fff",
+            color: "#2478AE",
+            padding: "4px 8px",
+            borderRadius: "12px",
+            fontSize: "11px",
+            fontWeight: "500",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+            textAlign: "center",
+            whiteSpace: "nowrap",
+            position: "absolute",
+            right: "64px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            pointerEvents: "none",
+          }}
+        >
+          UO AI
+        </div>
+      )}
     </div>
   )
 }
 
 export default InquiryAIButton
 
-console.log("UO Rakutentools: Inquiry page content script loaded")
-
+console.log("UO Rakutentools: Inquiry detail page - AI assistant loaded")
