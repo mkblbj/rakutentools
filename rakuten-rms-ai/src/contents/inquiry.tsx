@@ -2,7 +2,8 @@ import type { PlasmoCSConfig } from "plasmo"
 import { useState, useEffect } from "react"
 import { createRoot } from "react-dom/client"
 import { extractInquiryData, type InquiryData } from "~utils/dom-selectors"
-import { InquiryPanel } from "./inquiry-panel"
+import { InquiryPanel } from "~components/inquiry-panel"
+import type { ChatMessage } from "~components/inquiry-panel/MessageItem"
 
 // 匹配 Rakuten R-Messe 问询详情页
 export const config: PlasmoCSConfig = {
@@ -49,7 +50,14 @@ const createPanelContainer = () => {
 }
 
 // 渲染面板
-const renderPanel = (isOpen: boolean, inquiryData: InquiryData | null, onClose: () => void) => {
+const renderPanel = (
+  isOpen: boolean,
+  inquiryData: InquiryData | null,
+  messages: ChatMessage[],
+  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
+  onClose: () => void,
+  onMinimize: () => void
+) => {
   if (!panelRoot || !panelShadowRoot) return
 
   if (isOpen) {
@@ -57,7 +65,10 @@ const renderPanel = (isOpen: boolean, inquiryData: InquiryData | null, onClose: 
       <InquiryPanel
         shadowRoot={panelShadowRoot}
         inquiryData={inquiryData}
+        messages={messages}
+        setMessages={setMessages}
         onClose={onClose}
+        onMinimize={onMinimize}
       />
     )
   } else {
@@ -69,7 +80,18 @@ const renderPanel = (isOpen: boolean, inquiryData: InquiryData | null, onClose: 
 const InquiryAIButton = () => {
   const [isPanelOpen, setIsPanelOpen] = useState(false)
   const [inquiryData, setInquiryData] = useState<InquiryData | null>(null)
-  const [isMinimized, setIsMinimized] = useState(false)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+
+  // 处理最小化：关闭面板，恢复悬浮球（保留对话上下文）
+  const handleMinimize = () => {
+    setIsPanelOpen(false)
+  }
+
+  // 处理关闭：关闭面板，恢复悬浮球（清除对话上下文）
+  const handleClose = () => {
+    setIsPanelOpen(false)
+    setMessages([]) // 清除对话上下文
+  }
 
   // 初始化面板容器
   useEffect(() => {
@@ -77,7 +99,7 @@ const InquiryAIButton = () => {
     // 提取问询数据
     const data = extractInquiryData()
     setInquiryData(data)
-    
+
     // 检查是否在问询详情页
     const isInquiryDetailPage = /\/inquiry\/\d+-\d+-\d+[ot]/.test(window.location.pathname)
     if (!isInquiryDetailPage) {
@@ -87,8 +109,8 @@ const InquiryAIButton = () => {
 
   // 同步面板状态
   useEffect(() => {
-    renderPanel(isPanelOpen, inquiryData, () => setIsPanelOpen(false))
-  }, [isPanelOpen, inquiryData])
+    renderPanel(isPanelOpen, inquiryData, messages, setMessages, handleClose, handleMinimize)
+  }, [isPanelOpen, inquiryData, messages])
 
   const handleTogglePanel = () => {
     if (isPanelOpen) {

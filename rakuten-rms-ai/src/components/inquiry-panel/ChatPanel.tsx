@@ -1,23 +1,18 @@
 import { useState, useRef, useEffect } from "react"
-import { CopyOutlined, EditOutlined, SendOutlined } from "@ant-design/icons"
-import { Button, message, Tooltip, Input } from "antd"
+import { SendOutlined } from "@ant-design/icons"
+import { Button, Input, message } from "antd"
+import { MessageItem, type ChatMessage } from "./MessageItem"
 import type { InquiryData } from "~utils/dom-selectors"
 
 const { TextArea } = Input
 
 interface ChatPanelProps {
   inquiryData: InquiryData | null
+  messages: ChatMessage[]
+  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
 }
 
-interface ChatMessage {
-  id: string
-  role: "user" | "assistant"
-  content: string
-  timestamp: number
-}
-
-export const ChatPanel = ({ inquiryData }: ChatPanelProps) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+export const ChatPanel = ({ inquiryData, messages, setMessages }: ChatPanelProps) => {
   const [inputValue, setInputValue] = useState("")
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -32,13 +27,14 @@ export const ChatPanel = ({ inquiryData }: ChatPanelProps) => {
   }, [messages])
 
   // 发送消息（Phase 3 实现真正的 AI 调用）
-  const handleSend = async (text: string) => {
-    if (!text.trim() || loading) return
+  const handleSend = async () => {
+    const text = inputValue.trim()
+    if (!text || loading) return
 
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       role: "user",
-      content: text.trim(),
+      content: text,
       timestamp: Date.now(),
     }
 
@@ -76,16 +72,6 @@ export const ChatPanel = ({ inquiryData }: ChatPanelProps) => {
       message.success("已填充到回复框")
     } else {
       message.error("未找到回复输入框")
-    }
-  }
-
-  // 复制消息
-  const handleCopy = async (content: string) => {
-    try {
-      await navigator.clipboard.writeText(content)
-      message.success("已复制")
-    } catch {
-      message.error("复制失败")
     }
   }
 
@@ -134,12 +120,14 @@ export const ChatPanel = ({ inquiryData }: ChatPanelProps) => {
                 </div>
                 <div>客户: {inquiryData.customerName || "-"}</div>
                 <div>类别: {inquiryData.category || "-"}</div>
-                <div style={{ 
-                  marginTop: "4px", 
-                  maxHeight: "60px", 
-                  overflow: "hidden",
-                  textOverflow: "ellipsis" 
-                }}>
+                <div
+                  style={{
+                    marginTop: "4px",
+                    maxHeight: "60px",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
                   内容: {inquiryData.inquiryContent?.slice(0, 100) || "-"}...
                 </div>
               </div>
@@ -147,61 +135,7 @@ export const ChatPanel = ({ inquiryData }: ChatPanelProps) => {
           </div>
         ) : (
           messages.map((msg) => (
-            <div
-              key={msg.id}
-              style={{
-                marginBottom: "12px",
-                display: "flex",
-                flexDirection: "column",
-              alignItems: msg.role === "user" ? "flex-end" : "flex-start",
-            }}
-          >
-            <div
-              style={{
-                maxWidth: "85%",
-                backgroundColor: msg.role === "user" ? "#2478AE" : "#fff",
-                color: msg.role === "user" ? "#fff" : "#333",
-                padding: "10px 14px",
-                borderRadius: msg.role === "user" ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
-                fontSize: "13px",
-                lineHeight: "1.5",
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              {msg.content}
-            </div>
-              {/* AI 消息的操作按钮 */}
-              {msg.role === "assistant" && (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "4px",
-                    marginTop: "4px",
-                    marginLeft: "8px",
-                  }}
-                >
-                  <Tooltip title="填充到回复框">
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<EditOutlined />}
-                      onClick={() => handleFillToReply(msg.content)}
-                      style={{ fontSize: "12px", color: "#666" }}
-                    />
-                  </Tooltip>
-                  <Tooltip title="复制">
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<CopyOutlined />}
-                      onClick={() => handleCopy(msg.content)}
-                      style={{ fontSize: "12px", color: "#666" }}
-                    />
-                  </Tooltip>
-                </div>
-              )}
-            </div>
+            <MessageItem key={msg.id} message={msg} onFillToReply={handleFillToReply} />
           ))
         )}
         <div ref={messagesEndRef} />
@@ -215,30 +149,29 @@ export const ChatPanel = ({ inquiryData }: ChatPanelProps) => {
           backgroundColor: "#fff",
           display: "flex",
           gap: "8px",
+          alignItems: "flex-end",
         }}
       >
         <TextArea
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          onPressEnter={(e) => {
-            if (!e.shiftKey) {
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault()
-              handleSend(inputValue)
+              handleSend()
             }
           }}
           placeholder="输入消息... (Shift+Enter 换行)"
           autoSize={{ minRows: 1, maxRows: 4 }}
           disabled={loading}
-          style={{ flex: 1 }}
+          style={{ flex: 1, resize: "none" }}
         />
         <Button
           type="primary"
           icon={<SendOutlined />}
-          onClick={() => handleSend(inputValue)}
+          onClick={handleSend}
           loading={loading}
-          style={{
-            height: "32px",
-          }}
+          disabled={!inputValue.trim()}
         />
       </div>
     </div>

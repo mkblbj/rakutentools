@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react"
+import { useMemo } from "react"
 import { Rnd } from "react-rnd"
 import { ConfigProvider, App } from "antd"
 import { StyleProvider, createCache } from "@ant-design/cssinjs"
@@ -6,11 +6,15 @@ import { CloseOutlined, MinusOutlined } from "@ant-design/icons"
 import { ChatPanel } from "./ChatPanel"
 import { usePanelState } from "./hooks/usePanelState"
 import type { InquiryData } from "~utils/dom-selectors"
+import type { ChatMessage } from "./MessageItem"
 
 interface InquiryPanelProps {
   shadowRoot: ShadowRoot
   inquiryData: InquiryData | null
+  messages: ChatMessage[]
+  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
   onClose: () => void
+  onMinimize: () => void
 }
 
 // 默认面板尺寸和位置
@@ -18,8 +22,7 @@ const DEFAULT_SIZE = { width: 420, height: 520 }
 const DEFAULT_POSITION = { x: window.innerWidth - 440, y: window.innerHeight - 560 }
 const MIN_SIZE = { width: 320, height: 400 }
 
-export const InquiryPanel = ({ shadowRoot, inquiryData, onClose }: InquiryPanelProps) => {
-  const [isMinimized, setIsMinimized] = useState(false)
+export const InquiryPanel = ({ shadowRoot, inquiryData, messages, setMessages, onClose, onMinimize }: InquiryPanelProps) => {
   const { position, size, updatePosition, updateSize } = usePanelState(
     DEFAULT_POSITION,
     DEFAULT_SIZE
@@ -29,9 +32,22 @@ export const InquiryPanel = ({ shadowRoot, inquiryData, onClose }: InquiryPanelP
   const cache = useMemo(() => createCache(), [])
 
   // 面板标题
-  const panelTitle = inquiryData?.inquiryNumber 
+  const panelTitle = inquiryData?.inquiryNumber
     ? `问询 ${inquiryData.inquiryNumber.slice(-8)}`
     : "AI 助手"
+
+  // 处理最小化：关闭面板，恢复悬浮球
+  const handleMinimize = () => {
+    onMinimize()
+  }
+
+  // 处理关闭：二次确认后关闭
+  const handleClose = () => {
+    const confirmed = confirm("关闭将清除当前对话上下文，确定要关闭吗？")
+    if (confirmed) {
+      onClose()
+    }
+  }
 
   return (
     <StyleProvider container={shadowRoot} cache={cache}>
@@ -46,23 +62,21 @@ export const InquiryPanel = ({ shadowRoot, inquiryData, onClose }: InquiryPanelP
       >
         <App>
           <Rnd
-            size={isMinimized ? { width: 200, height: 40 } : size}
+            size={size}
             position={position}
             onDragStop={(e, d) => updatePosition({ x: d.x, y: d.y })}
             onResizeStop={(e, direction, ref, delta, pos) => {
-              if (!isMinimized) {
-                updateSize({
-                  width: parseInt(ref.style.width),
-                  height: parseInt(ref.style.height),
-                })
-                updatePosition(pos)
-              }
+              updateSize({
+                width: parseInt(ref.style.width),
+                height: parseInt(ref.style.height),
+              })
+              updatePosition(pos)
             }}
-            minWidth={isMinimized ? 200 : MIN_SIZE.width}
-            minHeight={isMinimized ? 40 : MIN_SIZE.height}
+            minWidth={MIN_SIZE.width}
+            minHeight={MIN_SIZE.height}
             bounds="window"
             dragHandleClassName="panel-drag-handle"
-            enableResizing={!isMinimized}
+            enableResizing={true}
             style={{
               zIndex: 2147483647,
             }}
@@ -101,7 +115,8 @@ export const InquiryPanel = ({ shadowRoot, inquiryData, onClose }: InquiryPanelP
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
                   <button
-                    onClick={() => setIsMinimized(!isMinimized)}
+                    onClick={handleMinimize}
+                    title="最小化（保留对话上下文）"
                     style={{
                       background: "rgba(255,255,255,0.2)",
                       border: "none",
@@ -116,7 +131,8 @@ export const InquiryPanel = ({ shadowRoot, inquiryData, onClose }: InquiryPanelP
                     <MinusOutlined style={{ fontSize: "12px" }} />
                   </button>
                   <button
-                    onClick={onClose}
+                    onClick={handleClose}
+                    title="关闭（清除对话上下文）"
                     style={{
                       background: "rgba(255,255,255,0.2)",
                       border: "none",
@@ -134,11 +150,9 @@ export const InquiryPanel = ({ shadowRoot, inquiryData, onClose }: InquiryPanelP
               </div>
 
               {/* 面板内容 */}
-              {!isMinimized && (
-                <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-                  <ChatPanel inquiryData={inquiryData} />
-                </div>
-              )}
+              <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                <ChatPanel inquiryData={inquiryData} messages={messages} setMessages={setMessages} />
+              </div>
             </div>
           </Rnd>
         </App>
