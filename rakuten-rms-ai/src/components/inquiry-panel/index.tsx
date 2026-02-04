@@ -3,16 +3,14 @@ import { Rnd } from "react-rnd"
 import { ConfigProvider, App } from "antd"
 import { StyleProvider, createCache } from "@ant-design/cssinjs"
 import { CloseOutlined, MinusOutlined } from "@ant-design/icons"
+import XProvider from "@ant-design/x/es/x-provider"
 import { ChatPanel } from "./ChatPanel"
 import { usePanelState } from "./hooks/usePanelState"
 import type { InquiryData } from "~utils/dom-selectors"
-import type { ChatMessage } from "./MessageItem"
 
 interface InquiryPanelProps {
   shadowRoot: ShadowRoot
   inquiryData: InquiryData | null
-  messages: ChatMessage[]
-  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
   onClose: () => void
   onMinimize: () => void
 }
@@ -22,7 +20,7 @@ const DEFAULT_SIZE = { width: 420, height: 520 }
 const DEFAULT_POSITION = { x: window.innerWidth - 440, y: window.innerHeight - 560 }
 const MIN_SIZE = { width: 320, height: 400 }
 
-export const InquiryPanel = ({ shadowRoot, inquiryData, messages, setMessages, onClose, onMinimize }: InquiryPanelProps) => {
+export const InquiryPanel = ({ shadowRoot, inquiryData, onClose, onMinimize }: InquiryPanelProps) => {
   const { position, size, updatePosition, updateSize } = usePanelState(
     DEFAULT_POSITION,
     DEFAULT_SIZE
@@ -151,7 +149,9 @@ export const InquiryPanel = ({ shadowRoot, inquiryData, messages, setMessages, o
 
               {/* 面板内容 */}
               <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-                <ChatPanel inquiryData={inquiryData} messages={messages} setMessages={setMessages} />
+                <XProvider>
+                  <ChatPanel inquiryData={inquiryData} />
+                </XProvider>
               </div>
             </div>
           </Rnd>

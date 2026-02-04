@@ -62,5 +62,42 @@ export interface ProviderConfig {
   temperature?: number
   maxTokens?: number
   thinkingLevel?: "low" | "high" // Gemini 3 thinking level
+  baseURL?: string // Custom Provider 的 base URL
+}
+
+// 聊天消息类型
+export interface ChatMessage {
+  id: string
+  role: "user" | "assistant" | "system"
+  content: string
+  thinking?: string // AI 思考过程
+  timestamp: number
+  status?: "pending" | "streaming" | "done" | "error"
+}
+
+// 会话存储结构
+export interface ChatSession {
+  inquiryNumber: string
+  messages: ChatMessage[]
+  model: string
+  createdAt: number
+  updatedAt: number
+}
+
+// 流式聊天请求
+export interface StartChatStreamRequest {
+  action: "start_chat_stream"
+  data: {
+    messages: Array<{ role: string; content: string }>
+    model?: string
+  }
+}
+
+// 流式响应块（支持 thinking + content）
+export interface StreamChunk {
+  type: "chunk" | "thinking" | "done" | "error"
+  content?: string
+  thinking?: string
+  error?: string
 }
 

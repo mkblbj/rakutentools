@@ -1,4 +1,4 @@
-import type { GenerateRequest, GenerateResponse, ReviewContext, InquiryContext } from "~types"
+import type { GenerateRequest, GenerateResponse, ReviewContext, InquiryContext, StartChatStreamRequest, StreamChunk } from "~types"
 import { StorageService } from "~services/storage"
 import { ModelFactory } from "~services/providers"
 
@@ -13,6 +13,68 @@ chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") {
     StorageService.resetToDefaults().catch(console.error)
   }
+})
+
+// 存储活跃的流式连接，用于中断
+const activeStreams = new Map<string, AbortController>()
+
+// 处理流式聊天的 Port 长连接
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== "chat_stream") return
+
+  console.log("🔌 Chat stream port connected")
+
+  port.onMessage.addListener(async (request: StartChatStreamRequest) => {
+    if (request.action !== "start_chat_stream") return
+
+    const streamId = `stream-${Date.now()}`
+    const abortController = new AbortController()
+    activeStreams.set(streamId, abortController)
+
+    // 发送 streamId 以便客户端可以请求中断
+    port.postMessage({ type: "stream_id", streamId } as StreamChunk & { streamId: string })
+
+    try {
+      const provider = await ModelFactory.createStreamProvider(request.data.model)
+      console.log(`🤖 开始流式聊天 - 模型: ${provider.getModel()}`)
+
+      const stream = provider.generateReplyStream(
+        request.data.messages,
+        abortController.signal
+      )
+
+      for await (const chunk of stream) {
+        if (abortController.signal.aborted) {
+          console.log("⚠️ 流式响应被中断")
+          break
+        }
+
+        // 根据 chunk 类型发送不同的消息
+        if (chunk.type === "thinking") {
+          port.postMessage({ type: "thinking", thinking: chunk.text } as StreamChunk)
+        } else if (chunk.type === "content") {
+          port.postMessage({ type: "chunk", content: chunk.text } as StreamChunk)
+        }
+        // done 类型在循环结束后处理
+      }
+
+      port.postMessage({ type: "done" } as StreamChunk)
+      console.log("✅ 流式聊天完成")
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "未知错误"
+      console.error("❌ 流式聊天错误:", errorMessage)
+      port.postMessage({ type: "error", error: errorMessage } as StreamChunk)
+    } finally {
+      activeStreams.delete(streamId)
+    }
+  })
+
+  // 处理中断请求
+  port.onDisconnect.addListener(() => {
+    console.log("🔌 Chat stream port disconnected")
+    // 中断所有该 port 关联的流
+    activeStreams.forEach((controller) => controller.abort())
+  })
 })
 
 // 监听来自 content script 的消息
@@ -33,6 +95,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       })
 
     // 返回 true 表示异步响应
+    return true
+  }
+
+  // 处理中断流式请求
+  if (request.action === "abort_chat_stream") {
+    const streamId = request.streamId
+    const controller = activeStreams.get(streamId)
+    if (controller) {
+      controller.abort()
+      activeStreams.delete(streamId)
+      sendResponse({ success: true })
+    } else {
+      sendResponse({ success: false, error: "Stream not found" })
+    }
     return true
   }
 

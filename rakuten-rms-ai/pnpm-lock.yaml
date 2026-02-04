@@ -17,6 +17,9 @@ importers:
       '@ant-design/x':
         specifier: ^2.2.1
         version: 2.2.1(antd@6.2.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@ant-design/x-sdk':
+        specifier: ^2.2.1
+        version: 2.2.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@mermaid-js/parser':
         specifier: ^0.6.3
         version: 0.6.3
@@ -120,6 +123,12 @@ packages:
     peerDependencies:
       react: ^0.14.0 || ^15.0.1 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
       react-dom: ^0.14.0 || ^15.0.1 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
+  '@ant-design/x-sdk@2.2.1':
+    resolution: {integrity: sha512-wtX2i7WJllGFg3JLYdzkvP8gzJtrkrx6Xn224OQRwk4W++wVmYQTOKx6Q9j4oLttS4dO5nB4Fpo820FtPl2rkQ==}
+    peerDependencies:
+      react: '>=18.0.0'
+      react-dom: '>=18.0.0'
 
   '@ant-design/x@2.2.1':
     resolution: {integrity: sha512-Wh20TdjZ+sxSKJMhfFwrPZmEsrHn1zWHu0ilsw9rgKGyVOMobhii1FU+8W9DWBeHapj5FEjLeMe88rx2+JFo+A==}
@@ -4072,6 +4081,12 @@ snapshots:
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
       throttle-debounce: 5.0.2
+
+  '@ant-design/x-sdk@2.2.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+    dependencies:
+      '@rc-component/util': 1.8.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
 
   '@ant-design/x@2.2.1(antd@6.2.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:

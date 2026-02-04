@@ -70,6 +70,33 @@ export class ModelFactory {
   }
 
   /**
+   * 创建支持流式响应的 CustomProvider
+   * 用于聊天面板的流式 AI 调用
+   */
+  static async createStreamProvider(model?: string): Promise<CustomProvider> {
+    const provider = await StorageService.getProvider()
+    const key = await StorageService.getApiKey(provider)
+
+    if (!key) {
+      throw new Error(`${provider.toUpperCase()} API Key 未配置`)
+    }
+
+    // 获取配置
+    const customBaseUrl = await StorageService.getCustomBaseUrl()
+    const customModel = model || (await StorageService.getCustomModel())
+
+    const config: ProviderConfig = {
+      apiKey: key,
+      baseURL: customBaseUrl,
+      model: customModel,
+      temperature: 0.7,
+      maxTokens: 4000,
+    }
+
+    return new CustomProvider(config)
+  }
+
+  /**
    * 验证 Provider 配置
    */
   static async validateProvider(provider: ProviderType): Promise<boolean> {
