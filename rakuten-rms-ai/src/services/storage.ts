@@ -106,6 +106,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   manusKey: "",
   manusModel: "manus-1.6",
   enabled: true,
+  maxTokens: 4000,
   reviewPrompt: DEFAULT_REVIEW_PROMPT,
 }
 
@@ -133,6 +134,7 @@ export class StorageService {
           "manusModel",
           "reviewPrompt",
           "enabled",
+          "maxTokens",
         ],
         (result) => {
           resolve({

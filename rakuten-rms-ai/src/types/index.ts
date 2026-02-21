@@ -1,13 +1,17 @@
 // 用户设置类型
 export interface UserSettings {
+  customApiKey?: string
+  customBaseUrl?: string
+  customModel?: string
   openaiKey?: string
   geminiKey?: string
   zenmuxKey?: string // ZenMux API Key
   manusKey?: string // Manus API Key
-  provider: "openai" | "gemini" | "zenmux" | "manus"
+  provider: "custom" | "openai" | "gemini" | "zenmux" | "manus"
   geminiModel?: "gemini-3-pro-preview" | "gemini-2.5-flash" | "gemini-2.5-flash-lite" | "gemini-2.0-flash-lite" // Gemini 模型选择
   zenmuxModel?: string // ZenMux 模型，格式: "provider/model-name"
   manusModel?: string // Manus 模型
+  maxTokens?: number // 统一输出 token 上限（应用侧）
   reviewPrompt?: string
   enabled: boolean
 }

@@ -19,10 +19,59 @@ function OptionsIndex() {
     manusModel: "manus-1.6",
     reviewPrompt: DEFAULT_REVIEW_PROMPT,
     enabled: true,
+    maxTokens: 4000,
   })
   const [saveStatus, setSaveStatus] = useState<string>("")
   const [availableModels, setAvailableModels] = useState<string[]>([])
   const [loadingModels, setLoadingModels] = useState(false)
+
+  const APP_DEFAULT_MAX_TOKENS = 4000
+
+  const getCurrentModelName = (): string => {
+    switch (settings.provider) {
+      case "gemini":
+        return settings.geminiModel || "gemini-2.5-flash"
+      case "zenmux":
+        return settings.zenmuxModel || "openai/gpt-4o-mini"
+      case "manus":
+        return settings.manusModel || "manus-1.6"
+      case "custom":
+        return settings.customModel || "gpt-4o-mini"
+      case "openai":
+      default:
+        return "gpt-4o-mini"
+    }
+  }
+
+  const getModelTokenHint = (): string => {
+    const model = getCurrentModelName().toLowerCase()
+
+    if (model.includes("gpt-4o-mini")) {
+      return "理论输出上限通常约 16k（以 OpenAI 官方文档为准）"
+    }
+
+    if (model.includes("gemini")) {
+      return "Gemini 不同版本上限差异较大，常见在 8k~64k（以 Google 官方文档为准）"
+    }
+
+    if (settings.provider === "zenmux") {
+      return "ZenMux 聚合多家模型，上限由具体 provider/model 决定"
+    }
+
+    if (settings.provider === "manus") {
+      return "Manus 输出上限由平台策略决定，请以官方文档为准"
+    }
+
+    return "理论上限取决于当前模型，建议查看服务商官方文档"
+  }
+
+  const getEffectiveMaxTokens = (): number => {
+    const value = settings.maxTokens
+    if (!value || Number.isNaN(value)) {
+      return APP_DEFAULT_MAX_TOKENS
+    }
+    return Math.min(32768, Math.max(256, value))
+  }
 
   useEffect(() => {
     // 从 storage 加载设置
@@ -66,7 +115,8 @@ function OptionsIndex() {
       setSaveStatus(`✅ 成功获取 ${models.length} 个模型`)
       setTimeout(() => setSaveStatus(""), 3000)
     } catch (error) {
-      setSaveStatus(`❌ 获取模型失败: ${error.message}`)
+      const message = error instanceof Error ? error.message : "未知错误"
+      setSaveStatus(`❌ 获取模型失败: ${message}`)
       console.error("Fetch models error:", error)
       setTimeout(() => setSaveStatus(""), 3000)
     } finally {
@@ -127,6 +177,38 @@ function OptionsIndex() {
                   </h2>
                   <p className="text-sm text-gray-600 mb-6">
                     配置你的 AI 服务提供商 API Key
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    输出 Token 上限（maxTokens）
+                  </label>
+                  <input
+                    type="number"
+                    min={256}
+                    max={32768}
+                    step={256}
+                    value={settings.maxTokens ?? APP_DEFAULT_MAX_TOKENS}
+                    onChange={(e) => {
+                      const next = Number.parseInt(e.target.value, 10)
+                      setSettings({
+                        ...settings,
+                        maxTokens: Number.isNaN(next)
+                          ? APP_DEFAULT_MAX_TOKENS
+                          : Math.min(32768, Math.max(256, next)),
+                      })
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <p className="mt-2 text-xs text-gray-500">
+                    当前生效上限: <span className="font-medium text-gray-700">{getEffectiveMaxTokens()}</span>
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    当前模型: <span className="font-medium text-gray-700">{getCurrentModelName()}</span>
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    理论上限提示: {getModelTokenHint()}
                   </p>
                 </div>
 
@@ -640,7 +722,7 @@ function OptionsIndex() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent font-mono text-sm"
                   />
                   <p className="mt-2 text-xs text-gray-500">
-                    可用变量：{{review_content}}, {{rating}}, {{product_name}}
+                    可用变量：{"{{review_content}}"}, {"{{rating}}"}, {"{{product_name}}"}
                   </p>
                 </div>
               </div>

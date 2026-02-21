@@ -25,10 +25,12 @@ export class ModelFactory {
       throw new Error(`${provider.toUpperCase()} API Key 未配置`)
     }
 
+    const settings = await StorageService.getSettings()
+
     const config: ProviderConfig = {
       apiKey: key,
       temperature: 0.7,
-      maxTokens: 4000, // 增加到 4000，避免大模型输出被截断
+      maxTokens: settings.maxTokens || 4000,
     }
 
     switch (provider) {
@@ -85,12 +87,14 @@ export class ModelFactory {
     const customBaseUrl = await StorageService.getCustomBaseUrl()
     const customModel = model || (await StorageService.getCustomModel())
 
+    const settings = await StorageService.getSettings()
+
     const config: ProviderConfig = {
       apiKey: key,
       baseURL: customBaseUrl,
       model: customModel,
       temperature: 0.7,
-      maxTokens: 4000,
+      maxTokens: settings.maxTokens || 4000,
     }
 
     return new CustomProvider(config)
