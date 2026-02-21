@@ -1,18 +1,11 @@
 import { useState } from "react"
 import "../style.css"
 
-type TestType = "review" | "inquiry"
-
 function TestPage() {
-  const [testType, setTestType] = useState<TestType>("review")
-  
   // Review fields
   const [reviewContent, setReviewContent] = useState("商品が期待以上で、大変満足しています。さらに、パッケージもとてもおしゃれで、届いた時に驚きと喜びがありました。")
   const [rating, setRating] = useState("5")
   const [productName, setProductName] = useState("テスト商品")
-  
-  // Inquiry fields
-  const [inquiryContent, setInquiryContent] = useState("コンビニ支払いをキャンセルしたいのですが、返金方法について教えてください。")
   
   // Common
   const [generatedReply, setGeneratedReply] = useState("")
@@ -25,9 +18,7 @@ function TestPage() {
   }
 
   const generateReply = async () => {
-    const content = testType === "review" ? reviewContent : inquiryContent
-    
-    if (!content.trim()) {
+    if (!reviewContent.trim()) {
       setError("内容を入力してください")
       return
     }
@@ -35,28 +26,21 @@ function TestPage() {
     setIsGenerating(true)
     setError("")
     setGeneratedReply("")
-    addLog(`🤖 ${testType === "review" ? "レビュー" : "問い合わせ"}回復生成を開始...`)
+    addLog("🤖 レビュー回復生成を開始...")
 
     const startTime = Date.now()
 
     try {
-      const context = testType === "review" 
-        ? {
-            reviewContent: reviewContent,
-            rating: rating,
-            productName: productName,
-          }
-        : {
-            inquiryContent: inquiryContent,
-            productName: productName,
-          }
-
       chrome.runtime.sendMessage(
         {
           action: "generate_reply",
           data: {
-            type: testType,
-            context: context,
+            type: "review",
+            context: {
+              reviewContent: reviewContent,
+              rating: rating,
+              productName: productName,
+            },
           },
         },
         (response) => {
@@ -85,12 +69,8 @@ function TestPage() {
   }
 
   const clearAll = () => {
-    if (testType === "review") {
-      setReviewContent("")
-      setRating("5")
-    } else {
-      setInquiryContent("")
-    }
+    setReviewContent("")
+    setRating("5")
     setProductName("")
     setGeneratedReply("")
     setError("")
@@ -116,10 +96,8 @@ function TestPage() {
       {
         action: "generate_reply",
         data: {
-          type: testType,
-          context: testType === "review"
-            ? { reviewContent: "テスト", rating: "5", productName: "テスト" }
-            : { inquiryContent: "テスト", productName: "テスト" }
+          type: "review",
+          context: { reviewContent: "テスト", rating: "5", productName: "テスト" },
         },
       },
       (response) => {
@@ -142,40 +120,8 @@ function TestPage() {
             UO Rakutentools - AI返信テスト
           </h1>
           <p className="text-sm text-gray-600">
-            レビュー返信とお問い合わせ返信のAI生成をテストします
+            レビュー返信のAI生成をテストします
           </p>
-        </div>
-
-        {/* Test Type Selector */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex gap-4">
-            <button
-              onClick={() => {
-                setTestType("review")
-                setGeneratedReply("")
-                setError("")
-              }}
-              className={`flex-1 px-6 py-4 rounded-lg font-medium transition-colors ${
-                testType === "review"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}>
-              📝 レビュー返信テスト
-            </button>
-            <button
-              onClick={() => {
-                setTestType("inquiry")
-                setGeneratedReply("")
-                setError("")
-              }}
-              className={`flex-1 px-6 py-4 rounded-lg font-medium transition-colors ${
-                testType === "inquiry"
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}>
-              💬 問い合わせ返信テスト
-            </button>
-          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -183,11 +129,11 @@ function TestPage() {
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-lg font-bold text-gray-800 mb-4">
-                {testType === "review" ? "📝 レビュー情報入力" : "💬 問い合わせ情報入力"}
+                📝 レビュー情報入力
               </h2>
 
               <div className="space-y-4">
-                {/* Product Name (Common) */}
+                {/* Product Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     商品名（オプション）
@@ -201,76 +147,50 @@ function TestPage() {
                   />
                 </div>
 
-                {/* Review Specific Fields */}
-                {testType === "review" && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        評価（星）
-                      </label>
-                      <div className="flex gap-2">
-                        {["1", "2", "3", "4", "5"].map((r) => (
-                          <button
-                            key={r}
-                            onClick={() => setRating(r)}
-                            className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                              rating === r
-                                ? "bg-yellow-500 text-white"
-                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                            }`}>
-                            {r}★
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        レビュー内容
-                      </label>
-                      <textarea
-                        value={reviewContent}
-                        onChange={(e) => setReviewContent(e.target.value)}
-                        rows={8}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-sans"
-                        placeholder="お客様のレビュー内容を入力してください"
-                      />
-                      <p className="mt-1 text-xs text-gray-500">
-                        文字数: {reviewContent.length}
-                      </p>
-                    </div>
-                  </>
-                )}
-
-                {/* Inquiry Specific Fields */}
-                {testType === "inquiry" && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      問い合わせ内容
-                    </label>
-                    <textarea
-                      value={inquiryContent}
-                      onChange={(e) => setInquiryContent(e.target.value)}
-                      rows={10}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent font-sans"
-                      placeholder="お客様の問い合わせ内容を入力してください"
-                    />
-                    <p className="mt-1 text-xs text-gray-500">
-                      文字数: {inquiryContent.length}
-                    </p>
+                {/* Rating */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    評価（星）
+                  </label>
+                  <div className="flex gap-2">
+                    {["1", "2", "3", "4", "5"].map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => setRating(r)}
+                        className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                          rating === r
+                            ? "bg-yellow-500 text-white"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        }`}>
+                        {r}★
+                      </button>
+                    ))}
                   </div>
-                )}
+                </div>
+
+                {/* Review Content */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    レビュー内容
+                  </label>
+                  <textarea
+                    value={reviewContent}
+                    onChange={(e) => setReviewContent(e.target.value)}
+                    rows={8}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-sans"
+                    placeholder="お客様のレビュー内容を入力してください"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    文字数: {reviewContent.length}
+                  </p>
+                </div>
 
                 {/* Action Buttons */}
                 <div className="flex gap-3">
                   <button
                     onClick={generateReply}
                     disabled={isGenerating}
-                    className={`flex-1 px-6 py-3 rounded-lg font-medium transition-colors ${
-                      testType === "review"
-                        ? "bg-blue-600 hover:bg-blue-700"
-                        : "bg-green-600 hover:bg-green-700"
-                    } text-white disabled:bg-gray-400 disabled:cursor-not-allowed`}>
+                    className="flex-1 px-6 py-3 rounded-lg font-medium transition-colors bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed">
                     {isGenerating ? "生成中..." : "🤖 返信を生成"}
                   </button>
                   <button
@@ -291,65 +211,28 @@ function TestPage() {
             {/* Sample Data */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-lg font-bold text-gray-800 mb-4">
-                💡 サンプル{testType === "review" ? "レビュー" : "問い合わせ"}
+                💡 サンプルレビュー
               </h2>
-              {testType === "review" ? (
-                <div className="grid grid-cols-1 gap-3">
-                  <button
-                    onClick={() => {
-                      setReviewContent("商品が期待以上で、大変満足しています。パッケージもおしゃれで驚きました。")
-                      setRating("5")
-                      setProductName("おしゃれな商品")
-                    }}
-                    className="p-4 text-left bg-gray-50 hover:bg-gray-100 rounded-lg border transition-colors">
-                    <p className="text-sm font-medium">⭐⭐⭐⭐⭐ 高評価</p>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setReviewContent("娘様がとても喜んでいました。犬も興味津々で見ていて、家族様みんなで楽しめました。")
-                      setRating("5")
-                      setProductName("ファミリー向け商品")
-                    }}
-                    className="p-4 text-left bg-gray-50 hover:bg-gray-100 rounded-lg border transition-colors">
-                    <p className="text-sm font-medium">⭐⭐⭐⭐⭐ 敬称テスト</p>
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-3">
-                  <button
-                    onClick={() => {
-                      setInquiryContent("コンビニ支払いをキャンセルしたいのですが、返金方法について教えてください。")
-                      setProductName("")
-                    }}
-                    className="p-4 text-left bg-gray-50 hover:bg-gray-100 rounded-lg border transition-colors">
-                    <p className="text-sm font-medium">💰 コンビニ支払い</p>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setInquiryContent("商品が届きましたが、動作しません。初期不良のようです。返品・返金できますか？")
-                      setProductName("電子機器")
-                    }}
-                    className="p-4 text-left bg-gray-50 hover:bg-gray-100 rounded-lg border transition-colors">
-                    <p className="text-sm font-medium">🔧 初期不良</p>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setInquiryContent("注文して5日経ちますが、まだ商品が届いていません。発送状況を教えてください。")
-                      setProductName("")
-                    }}
-                    className="p-4 text-left bg-gray-50 hover:bg-gray-100 rounded-lg border transition-colors">
-                    <p className="text-sm font-medium">📦 未着問い合わせ</p>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setInquiryContent("領収書が必要なのですが、発行できますか？")
-                      setProductName("")
-                    }}
-                    className="p-4 text-left bg-gray-50 hover:bg-gray-100 rounded-lg border transition-colors">
-                    <p className="text-sm font-medium">📄 領収書</p>
-                  </button>
-                </div>
-              )}
+              <div className="grid grid-cols-1 gap-3">
+                <button
+                  onClick={() => {
+                    setReviewContent("商品が期待以上で、大変満足しています。パッケージもおしゃれで驚きました。")
+                    setRating("5")
+                    setProductName("おしゃれな商品")
+                  }}
+                  className="p-4 text-left bg-gray-50 hover:bg-gray-100 rounded-lg border transition-colors">
+                  <p className="text-sm font-medium">⭐⭐⭐⭐⭐ 高評価</p>
+                </button>
+                <button
+                  onClick={() => {
+                    setReviewContent("娘様がとても喜んでいました。犬も興味津々で見ていて、家族様みんなで楽しめました。")
+                    setRating("5")
+                    setProductName("ファミリー向け商品")
+                  }}
+                  className="p-4 text-left bg-gray-50 hover:bg-gray-100 rounded-lg border transition-colors">
+                  <p className="text-sm font-medium">⭐⭐⭐⭐⭐ 敬称テスト</p>
+                </button>
+              </div>
             </div>
 
             {/* System Test */}
@@ -384,9 +267,7 @@ function TestPage() {
 
               {generatedReply ? (
                 <div className="space-y-4">
-                  <div className={`p-4 border rounded-lg ${
-                    testType === "review" ? "bg-blue-50 border-blue-200" : "bg-green-50 border-green-200"
-                  }`}>
+                  <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
                     <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800 leading-relaxed">
                       {generatedReply}
                     </pre>

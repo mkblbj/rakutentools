@@ -35,16 +35,8 @@ src/
     *   **Review 页**: (`https://review.rms.rakuten.co.jp/*`)
         *   注入 `<AIReviewButton />`。
         *   上下文抓取：评论内容、评分、商品名。
-    *   **Inquiry (R-Messe) 页**: (`https://rmesse.rms.rakuten.co.jp/*`)
-        *   注入 `<AIInquiryButton />`。
-        *   上下文抓取：买家咨询内容、历史对话。
-2.  **智能场景识别**:
-    *   插件根据 URL 自动判断当前是 "Review" 模式还是 "Inquiry" 模式。
-    *   **加载对应的 Prompt**:
-        *   Review 模式 -> 使用 `review_prompt`。
-        *   Inquiry 模式 -> 使用 `inquiry_prompt`。
-3.  **获取配置 (Storage)**:
-    *   读取用户设置：`provider`, `apiKey`, `customPrompts` (包含 review 和 inquiry 两个模板)。
+2.  **获取配置 (Storage)**:
+    *   读取用户设置：`provider`, `apiKey`, `customPrompts` (Review 模板)。
 3.  **构建 Prompt**:
     *   将 `{{review_text}}`, `{{product_name}}` 等变量替换到 Prompt 模板中。
 4.  **调用 AI (Background Script)**:
@@ -64,10 +56,7 @@ src/
 *   **OpenAI 实现**: 使用标准 OpenAI SDK。
 
 ### 📝 提示词管理 (Prompt Manager)
-*   **设置页面**: 提供**两个**独立的编辑框。
-    1.  **Review Reply Prompt**: 针对商品评价的回复。
-    2.  **Inquiry Reply Prompt**: 针对 R-Messe 咨询的回复。
-*   **智能切换**: 在不同页面通过 `storage` 读取对应的 Prompt。
+*   **设置页面**: 提供 **Review Reply Prompt** 编辑框，针对商品评价的回复。
 
 ## 5. 登录验证与权限 (Authentication)
 

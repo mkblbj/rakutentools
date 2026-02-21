@@ -1,7 +1,7 @@
 # RakuRip 浏览器插件复刻版 - 详细实现计划
 
 ## 1. 项目概述 (Overview)
-本项目旨在开发一个跨浏览器（Chrome & Firefox）插件，通过 AI（OpenAI & Gemini）辅助 Rakuten RMS 的评论回复（Review）和咨询回复（Inquiry）。
+本项目旨在开发一个跨浏览器（Chrome & Firefox）插件，通过 AI（OpenAI & Gemini）辅助 Rakuten RMS 的评论回复（Review）。
 核心目标是**无需模拟登录**，直接利用浏览器当前 Session，实现由 AI 自动生成回复草稿并填入页面。
 
 **项目名称**: `rakutentools`  
@@ -40,7 +40,7 @@
 ### 第二阶段：核心服务层 (Core Services - Background)
 1.  **配置存储 (Storage Service)**:
     -   设计数据结构存储 API Keys (OpenAI/Gemini)。
-    -   存储用户自定义 Prompts (Review Prompt / Inquiry Prompt)。
+    -   存储用户自定义 Prompts (Review Prompt)。
 2.  **LLM 适配器模式 (LLM Service)**:
     -   定义 `LLMProvider` 接口 (`generateReply(context, prompt)`)。
     -   实现 `OpenAIProvider`：调用 GPT-4o-mini / GPT-3.5-turbo。
@@ -84,30 +84,16 @@
 -   **交互流程**:
     -   点击按钮 -> 按钮变 loading -> 调用 Background AI -> 获取文本 -> 填入 textarea -> 触发 input 事件(确保 React/Vue 框架能感知变化)。
 
-#### B. 咨询页 (R-Messe Inquiry)
--   **Target URL**: `https://rmesse.rms.rakuten.co.jp/inquiry/*`
--   **DOM 分析**:
-    -   定位聊天记录容器。
-    -   提取：最新的一条买家消息。
--   **交互流程**:
-    -   在发送框旁边注入 "✨ 智能回复" 按钮。
-    -   逻辑同上，但使用 `Inquiry Prompt` 模板。
-
 **阶段测试**:
 - [ ] **Review 页面**:
     - [ ] 验证按钮是否正确注入到每条评论旁
     - [ ] 测试上下文提取：评论文本、评分、商品名是否准确
     - [ ] 测试 AI 回复生成和自动填入功能
     - [ ] 验证 textarea 的 `input` 事件是否触发（确保框架能感知）
-- [ ] **Inquiry 页面**:
-    - [ ] 验证按钮注入位置正确
-    - [ ] 测试最新消息提取
-    - [ ] 验证使用了正确的 Inquiry Prompt
-- [ ] **跨页面测试**: 在两个页面间切换，确保插件能正确识别并加载对应逻辑
 
 ### 第五阶段：集成测试与发布 (Integration Testing & Delivery)
 1.  **Chrome 完整测试**:
-    -   在 Review 页面和 Inquiry 页面分别测试完整流程。
+    -   在 Review 页面测试完整流程。
     -   测试网络异常、API 限流等边界情况。
 2.  **Firefox 完整测试**:
     -   验证 Firefox 下的 API 兼容性（尤其是 `browser.storage` vs `chrome.storage`）。
@@ -120,7 +106,7 @@
     -   检查是否存在 XSS 风险（特别是动态注入的内容）。
 
 **最终验收测试**:
-- [ ] 在真实的 Rakuten RMS 环境中测试 Review 和 Inquiry 两个场景
+- [ ] 在真实的 Rakuten RMS 环境中测试 Review 场景
 - [ ] 验证 OpenAI 和 Gemini 两种模型都能正常工作
 - [ ] 多浏览器测试：Chrome 和 Firefox 都能正常加载和运行
 - [ ] 边界测试：未登录状态、API Key 错误、网络断开等
@@ -145,7 +131,7 @@
 ### 手动测试清单
 每次发布前必须手动验证以下流程：
 1.  在 Chrome 和 Firefox 中分别安装插件
-2.  登录 Rakuten RMS，访问 Review 和 Inquiry 页面
+2.  登录 Rakuten RMS，访问 Review 页面
 3.  测试 AI 回复生成的准确性和填入的流畅性
 4.  测试设置页面的所有功能（保存、恢复默认等）
 

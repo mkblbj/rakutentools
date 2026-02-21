@@ -27,7 +27,6 @@
 - [ ] 创建 Options 页面布局 (Sidebar + Main Content)
 - [ ] 实现 "API 设置" 模块 (输入框 + 保存/验证)
 - [ ] 实现 "Prompt 编辑器" 模块
-    - [ ] 选项卡：Review Review / Inquiry Reply
     - [ ] 文本域：支持变量高亮或说明
     - [ ] 重置按钮功能
 - [ ] **测试**:
@@ -41,20 +40,13 @@
     - [ ] 创建 `AIReviewButton` 组件
     - [ ] 实现点击提取上下文 (`text`, `rating`)
     - [ ] 实现文本回填 (`textarea.value` + `dispatchEvent`)
-- [ ] **Inquiry 页面注入**
-    - [ ] 编写 DOM 选择器 (定位最新消息)
-    - [ ] 创建 `AIInquiryButton` 组件
-    - [ ] 实现上下文提取和回填
 - [ ] **测试**:
     - [ ] Review 页：验证按钮注入、上下文提取、文本填入
-    - [ ] Inquiry 页：验证按钮注入和消息提取
-    - [ ] 跨页面切换测试（URL 识别是否正确）
     - [ ] 测试 textarea 的 input 事件触发
 
 ## Phase 5: 集成测试与优化
 - [ ] **Chrome 集成测试**
     - [ ] 在真实 Review 页面测试完整流程
-    - [ ] 在真实 Inquiry 页面测试完整流程
     - [ ] 测试 OpenAI 和 Gemini 模型切换
 - [ ] **Firefox 集成测试**
     - [ ] 验证 API 兼容性（browser.* vs chrome.*）

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import "./style.css"
 import type { UserSettings } from "~types"
-import { StorageService, DEFAULT_REVIEW_PROMPT, DEFAULT_INQUIRY_PROMPT } from "~services"
+import { StorageService, DEFAULT_REVIEW_PROMPT } from "~services"
 
 function OptionsIndex() {
   const [activeTab, setActiveTab] = useState<"api" | "prompts">("api")
@@ -18,11 +18,9 @@ function OptionsIndex() {
     zenmuxModel: "",
     manusModel: "manus-1.6",
     reviewPrompt: DEFAULT_REVIEW_PROMPT,
-    inquiryPrompt: DEFAULT_INQUIRY_PROMPT,
     enabled: true,
   })
   const [saveStatus, setSaveStatus] = useState<string>("")
-  const [promptTab, setPromptTab] = useState<"review" | "inquiry">("review")
   const [availableModels, setAvailableModels] = useState<string[]>([])
   const [loadingModels, setLoadingModels] = useState(false)
 
@@ -44,12 +42,8 @@ function OptionsIndex() {
     }
   }
 
-  const resetPrompt = (type: "review" | "inquiry") => {
-    if (type === "review") {
-      setSettings({ ...settings, reviewPrompt: DEFAULT_REVIEW_PROMPT })
-    } else {
-      setSettings({ ...settings, inquiryPrompt: DEFAULT_INQUIRY_PROMPT })
-    }
+  const resetPrompt = () => {
+    setSettings({ ...settings, reviewPrompt: DEFAULT_REVIEW_PROMPT })
   }
 
   const fetchModels = async () => {
@@ -622,64 +616,31 @@ function OptionsIndex() {
                   </p>
                 </div>
 
-                {/* Prompt Tabs */}
-                <div className="flex gap-2 border-b">
-                  <button
-                    onClick={() => setPromptTab("review")}
-                    className={`px-4 py-2 font-medium transition-colors ${
-                      promptTab === "review"
-                        ? "text-red-600 border-b-2 border-red-600"
-                        : "text-gray-600 hover:text-gray-800"
-                    }`}>
-                    商品评价回复
-                  </button>
-                  <button
-                    onClick={() => setPromptTab("inquiry")}
-                    className={`px-4 py-2 font-medium transition-colors ${
-                      promptTab === "inquiry"
-                        ? "text-red-600 border-b-2 border-red-600"
-                        : "text-gray-600 hover:text-gray-800"
-                    }`}>
-                    咨询消息回复
-                  </button>
-                </div>
-
                 {/* Prompt Editor */}
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="block text-sm font-medium text-gray-700">
-                      {promptTab === "review"
-                        ? "评价回复 Prompt"
-                        : "咨询回复 Prompt"}
+                      评价回复 Prompt
                     </label>
                     <button
-                      onClick={() => resetPrompt(promptTab)}
+                      onClick={() => resetPrompt()}
                       className="text-sm text-blue-600 hover:text-blue-700">
                       恢复默认
                     </button>
                   </div>
                   <textarea
-                    value={
-                      promptTab === "review"
-                        ? settings.reviewPrompt
-                        : settings.inquiryPrompt
-                    }
+                    value={settings.reviewPrompt}
                     onChange={(e) =>
                       setSettings({
                         ...settings,
-                        [promptTab === "review"
-                          ? "reviewPrompt"
-                          : "inquiryPrompt"]: e.target.value,
+                        reviewPrompt: e.target.value,
                       })
                     }
                     rows={15}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent font-mono text-sm"
                   />
                   <p className="mt-2 text-xs text-gray-500">
-                    可用变量：
-                    {promptTab === "review"
-                      ? " {{review_content}}, {{rating}}, {{product_name}}"
-                      : " {{inquiry_content}}, {{customer_name}}, {{category}}, {{order_number}}, {{user_instruction}}"}
+                    可用变量：{{review_content}}, {{rating}}, {{product_name}}
                   </p>
                 </div>
               </div>

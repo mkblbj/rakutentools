@@ -9,7 +9,6 @@ export interface UserSettings {
   zenmuxModel?: string // ZenMux 模型，格式: "provider/model-name"
   manusModel?: string // Manus 模型
   reviewPrompt?: string
-  inquiryPrompt?: string
   enabled: boolean
 }
 
@@ -24,23 +23,10 @@ export interface ReviewContext {
   buyerName?: string
 }
 
-// 咨询上下文
-export interface InquiryContext {
-  inquiryContent: string
-  customerName?: string
-  category?: string
-  orderNumber?: string
-  inquiryNumber?: string
-  receivedTime?: string
-  productName?: string
-  conversationHistory?: string
-  userInstruction?: string // 用户主观输入的指示（如"明日发货"、"追踪号12345"）
-}
-
 // 生成请求类型
 export interface GenerateRequest {
-  type: "review" | "inquiry"
-  context: ReviewContext | InquiryContext
+  type: "review"
+  context: ReviewContext
 }
 
 // 生成响应类型
@@ -73,15 +59,6 @@ export interface ChatMessage {
   thinking?: string // AI 思考过程
   timestamp: number
   status?: "pending" | "streaming" | "done" | "error"
-}
-
-// 会话存储结构
-export interface ChatSession {
-  inquiryNumber: string
-  messages: ChatMessage[]
-  model: string
-  createdAt: number
-  updatedAt: number
 }
 
 // 流式聊天请求

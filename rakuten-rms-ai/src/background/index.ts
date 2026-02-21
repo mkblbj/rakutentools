@@ -1,4 +1,4 @@
-import type { GenerateRequest, GenerateResponse, ReviewContext, InquiryContext, StartChatStreamRequest, StreamChunk } from "~types"
+import type { GenerateRequest, GenerateResponse, ReviewContext, StartChatStreamRequest, StreamChunk } from "~types"
 import { StorageService } from "~services/storage"
 import { ModelFactory } from "~services/providers"
 
@@ -138,11 +138,11 @@ async function handleGenerateReply(
       throw new Error(`请先配置 ${provider === "openai" ? "OpenAI" : provider === "gemini" ? "Gemini" : provider === "zenmux" ? "ZenMux" : "Custom"} API Key`)
     }
 
-    // 3. 获取对应的 Prompt 模板
-    const promptTemplate = await StorageService.getPrompt(request.type)
+    // 3. 获取 Review Prompt 模板
+    const promptTemplate = await StorageService.getPrompt()
 
     // 4. 替换变量
-    const prompt = buildPrompt(promptTemplate, request.type, request.context)
+    const prompt = buildPrompt(promptTemplate, request.context)
 
     // 5. 创建 Provider 并调用 AI
     const llmProvider = await ModelFactory.createCurrentProvider()
@@ -170,33 +170,13 @@ async function handleGenerateReply(
  */
 function buildPrompt(
   template: string,
-  type: "review" | "inquiry",
-  context: ReviewContext | InquiryContext
+  context: ReviewContext
 ): string {
-  let prompt = template
-
-  if (type === "review") {
-    const reviewContext = context as ReviewContext
-    prompt = prompt
-      .replace(/\{\{review_content\}\}/g, reviewContext.reviewContent || "")
-      .replace(/\{\{rating\}\}/g, reviewContext.rating || "5")
-      .replace(/\{\{product_name\}\}/g, reviewContext.productName || "")
-      .replace(/\{\{buyer_name\}\}/g, reviewContext.buyerName || "")
-  } else if (type === "inquiry") {
-    const inquiryContext = context as InquiryContext
-    prompt = prompt
-      .replace(/\{\{inquiry_content\}\}/g, inquiryContext.inquiryContent || "")
-      .replace(/\{\{customer_name\}\}/g, inquiryContext.customerName || "")
-      .replace(/\{\{category\}\}/g, inquiryContext.category || "")
-      .replace(/\{\{order_number\}\}/g, inquiryContext.orderNumber || "")
-      .replace(/\{\{inquiry_number\}\}/g, inquiryContext.inquiryNumber || "")
-      .replace(/\{\{received_time\}\}/g, inquiryContext.receivedTime || "")
-      .replace(/\{\{product_name\}\}/g, inquiryContext.productName || "")
-      .replace(/\{\{conversation_history\}\}/g, inquiryContext.conversationHistory || "")
-      .replace(/\{\{user_instruction\}\}/g, inquiryContext.userInstruction || "（なし）")
-  }
-
-  return prompt
+  return template
+    .replace(/\{\{review_content\}\}/g, context.reviewContent || "")
+    .replace(/\{\{rating\}\}/g, context.rating || "5")
+    .replace(/\{\{product_name\}\}/g, context.productName || "")
+    .replace(/\{\{buyer_name\}\}/g, context.buyerName || "")
 }
 
 export {}
