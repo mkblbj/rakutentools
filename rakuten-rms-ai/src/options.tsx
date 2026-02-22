@@ -4,7 +4,7 @@ import type { UserSettings } from "~types"
 import { StorageService, DEFAULT_REVIEW_PROMPT } from "~services"
 
 function OptionsIndex() {
-  const [activeTab, setActiveTab] = useState<"api" | "prompts">("api")
+  const [activeTab, setActiveTab] = useState<"openai" | "gemini" | "prompts">("openai")
   const [settings, setSettings] = useState<UserSettings>({
     provider: "gemini",
     openaiKey: "",
@@ -130,19 +130,27 @@ function OptionsIndex() {
       <div className="max-w-6xl mx-auto px-6 py-8">
         <div className="flex gap-6">
           <div className="w-64 space-y-2">
-            {(["api", "prompts"] as const).map((tab) => (
+            {([
+              { key: "openai", label: "OpenAI" },
+              { key: "gemini", label: "Gemini" },
+              { key: "prompts", label: "Prompt 编辑器" },
+            ] as const).map(({ key, label }) => (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-colors ${activeTab === tab ? "text-white" : "bg-white text-gray-700 hover:bg-gray-100"}`}
-                style={activeTab === tab ? activeBtn : {}}>
-                {tab === "api" ? "API 设置" : "Prompt 编辑器"}
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-colors ${activeTab === key ? "text-white" : "bg-white text-gray-700 hover:bg-gray-100"}`}
+                style={activeTab === key ? activeBtn : {}}>
+                {label}
+                {key !== "prompts" && settings.provider === key && (
+                  <span className="ml-2 text-xs opacity-75">(默认)</span>
+                )}
               </button>
             ))}
           </div>
 
           <div className="flex-1 bg-white rounded-lg shadow-sm p-6">
-            {activeTab === "api" && renderApiTab()}
+            {activeTab === "openai" && renderProviderTab("openai")}
+            {activeTab === "gemini" && renderProviderTab("gemini")}
             {activeTab === "prompts" && renderPromptsTab()}
 
             <div className="flex items-center gap-3 mt-6 pt-6 border-t">
@@ -162,41 +170,34 @@ function OptionsIndex() {
     </div>
   )
 
-  function renderApiTab() {
+  function renderProviderTab(provider: "openai" | "gemini") {
+    const name = provider === "openai" ? "OpenAI" : "Gemini"
+    const isDefault = settings.provider === provider
     return (
-      <div className="space-y-8">
-        <div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">API 配置</h2>
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 leading-relaxed">
-            <strong>Token 预算说明:</strong> 旧方案中 thinking + 可见输出共享同一个 max_tokens，导致 thinking 模型消耗大量思考 token 后可见回复被截断。新方案两者独立：「可见输出 Token」只控制回复长度，思考 token 由独立参数控制，互不挤占。
-          </div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-gray-800">{name} 配置</h2>
+          {isDefault ? (
+            <span className="px-3 py-1 text-xs rounded-full text-white" style={activeBtn}>当前默认</span>
+          ) : (
+            <button
+              onClick={() => setSettings({ ...settings, provider })}
+              className="px-3 py-1 text-xs rounded-full bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors">
+              设为默认
+            </button>
+          )}
         </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">默认 Provider</label>
-          <div className="flex gap-3">
-            {(["openai", "gemini"] as const).map((p) => (
-              <button
-                key={p}
-                onClick={() => setSettings({ ...settings, provider: p })}
-                className={`px-5 py-3 rounded-lg font-medium transition-colors ${settings.provider === p ? "text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
-                style={settings.provider === p ? activeBtn : {}}>
-                {p === "openai" ? "OpenAI" : "Gemini"}
-              </button>
-            ))}
-          </div>
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 leading-relaxed">
+          <strong>Token 预算说明:</strong> 「可见输出 Token」只控制回复长度，思考 token 由独立参数控制，互不挤占。
         </div>
-
-        {renderOpenAISection()}
-        {renderGeminiSection()}
+        {provider === "openai" ? renderOpenAISection() : renderGeminiSection()}
       </div>
     )
   }
 
   function renderOpenAISection() {
     return (
-      <fieldset className="rounded-lg border border-gray-200 p-5 space-y-5">
-        <legend className="px-2 text-sm font-semibold text-gray-700">OpenAI</legend>
+      <div className="space-y-5">
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
@@ -241,14 +242,13 @@ function OptionsIndex() {
             </span>
           )}
         </div>
-      </fieldset>
+      </div>
     )
   }
 
   function renderGeminiSection() {
     return (
-      <fieldset className="rounded-lg border border-gray-200 p-5 space-y-5">
-        <legend className="px-2 text-sm font-semibold text-gray-700">Gemini</legend>
+      <div className="space-y-5">
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
@@ -272,10 +272,33 @@ function OptionsIndex() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">思考预算 (thinkingBudget): <span className="font-bold text-gray-900">{(settings.geminiThinkingBudget ?? 0) === 0 ? "关闭" : settings.geminiThinkingBudget}</span></label>
-          <input type="range" min={0} max={8192} step={512} value={settings.geminiThinkingBudget ?? 0} onChange={(e) => setSettings({ ...settings, geminiThinkingBudget: Number(e.target.value) })} className="w-full" />
-          <div className="flex justify-between text-xs text-gray-400 mt-1"><span>0 (关闭)</span><span>8192</span></div>
-          <p className="mt-1 text-xs text-gray-500">评价回复建议关闭(0)，聊天可酌情开启。思考 token 不占用输出预算。</p>
+          {(() => {
+            const isProModel = (settings.geminiModel || "").toLowerCase().includes("-pro")
+            const budget = settings.geminiThinkingBudget ?? 0
+            const effectiveBudget = isProModel ? Math.max(budget, 1024) : budget
+            const visibleTokens = settings.geminiMaxOutputTokens ?? 2048
+            const totalTokens = visibleTokens + effectiveBudget
+            const label = isProModel
+              ? (budget === 0 ? `最低 1024 (实际: ${effectiveBudget})` : String(effectiveBudget))
+              : (budget === 0 ? "关闭" : String(budget))
+            const minLabel = isProModel ? "0 → 最低 1024" : "0 (关闭)"
+            return (
+              <>
+                <label className="block text-sm font-medium text-gray-700 mb-1">思考预算 (thinkingBudget): <span className="font-bold text-gray-900">{label}</span></label>
+                <input type="range" min={0} max={8192} step={512} value={budget} onChange={(e) => setSettings({ ...settings, geminiThinkingBudget: Number(e.target.value) })} className="w-full" />
+                <div className="flex justify-between text-xs text-gray-400 mt-1"><span>{minLabel}</span><span>8192</span></div>
+                {isProModel ? (
+                  <p className="mt-1 text-xs text-amber-600">Pro 模型强制开启思考且最低 1024。API 实际 maxOutputTokens = 可见({visibleTokens}) + 思考({effectiveBudget}) = {totalTokens}</p>
+                ) : (
+                  effectiveBudget > 0 ? (
+                    <p className="mt-1 text-xs text-gray-500">API 实际 maxOutputTokens = 可见({visibleTokens}) + 思考({effectiveBudget}) = {totalTokens}。Gemini 的 maxOutputTokens 包含思考 token。</p>
+                  ) : (
+                    <p className="mt-1 text-xs text-gray-500">思考已关闭，评价回复推荐此设置。开启后思考 token 会计入 maxOutputTokens 总预算。</p>
+                  )
+                )}
+              </>
+            )
+          })()}
         </div>
 
         <div className="pt-3 border-t border-gray-200">
@@ -291,7 +314,7 @@ function OptionsIndex() {
             </span>
           )}
         </div>
-      </fieldset>
+      </div>
     )
   }
 

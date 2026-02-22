@@ -20,12 +20,26 @@ export class GeminiProvider implements LLMProvider {
     this.temperature = config.temperature ?? 0.7
   }
 
+  private static PRO_MIN_THINKING_BUDGET = 1024
+
+  private isThinkingOnlyModel(): boolean {
+    return this.model.toLowerCase().includes("-pro")
+  }
+
   private buildConfig() {
     const config: Record<string, any> = {
-      maxOutputTokens: this.maxOutputTokens,
       temperature: this.temperature,
-      thinkingConfig: { thinkingBudget: this.thinkingBudget },
     }
+
+    let effectiveBudget: number
+    if (this.isThinkingOnlyModel()) {
+      effectiveBudget = Math.max(this.thinkingBudget, GeminiProvider.PRO_MIN_THINKING_BUDGET)
+    } else {
+      effectiveBudget = this.thinkingBudget
+    }
+
+    config.thinkingConfig = { thinkingBudget: effectiveBudget }
+    config.maxOutputTokens = this.maxOutputTokens + effectiveBudget
 
     return config
   }
