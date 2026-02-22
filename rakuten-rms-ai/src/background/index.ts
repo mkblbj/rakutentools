@@ -2,109 +2,91 @@ import type { GenerateRequest, GenerateResponse, ReviewContext, StartChatStreamR
 import { StorageService } from "~services/storage"
 import { ModelFactory } from "~services/providers"
 
-// Background Service Worker
 console.log("UO Rakutentools Background Service Worker started")
 
-// 监听安装事件
 chrome.runtime.onInstalled.addListener((details) => {
   console.log("Extension installed:", details.reason)
-
-  // 初始化默认设置
   if (details.reason === "install") {
     StorageService.resetToDefaults().catch(console.error)
   }
 })
 
-// 存储活跃的流式连接，用于中断
 const activeStreams = new Map<string, AbortController>()
 
-// 处理流式聊天的 Port 长连接
-chrome.runtime.onConnect.addListener((port) => {
-  if (port.name !== "chat_stream") return
-
-  console.log("🔌 Chat stream port connected")
-
-  port.onMessage.addListener(async (request: StartChatStreamRequest) => {
-    if (request.action !== "start_chat_stream") return
+function handleStreamPort(port: chrome.runtime.Port, getMessages: (request: any) => Array<{ role: string; content: string }> | null) {
+  port.onMessage.addListener(async (request: any) => {
+    const messages = getMessages(request)
+    if (!messages) return
 
     const streamId = `stream-${Date.now()}`
     const abortController = new AbortController()
     activeStreams.set(streamId, abortController)
 
-    // 发送 streamId 以便客户端可以请求中断
-    port.postMessage({ type: "stream_id", streamId } as StreamChunk & { streamId: string })
+    port.postMessage({ type: "stream_id", streamId })
 
     try {
-      const provider = await ModelFactory.createStreamProvider(request.data.model)
-      console.log(`🤖 开始流式聊天 - 模型: ${provider.getModel()}`)
+      const provider = await ModelFactory.createCurrentProvider()
 
-      const stream = provider.generateReplyStream(
-        request.data.messages,
-        abortController.signal
-      )
+      const stream = provider.generateReplyStream(messages, abortController.signal)
 
       for await (const chunk of stream) {
-        if (abortController.signal.aborted) {
-          console.log("⚠️ 流式响应被中断")
-          break
-        }
+        if (abortController.signal.aborted) break
 
-        // 根据 chunk 类型发送不同的消息
         if (chunk.type === "thinking") {
-          port.postMessage({ type: "thinking", thinking: chunk.text } as StreamChunk)
-        } else if (chunk.type === "content") {
-          port.postMessage({ type: "chunk", content: chunk.text } as StreamChunk)
+          port.postMessage({ type: "thinking", thinking: chunk.thinking } as StreamChunk)
+        } else if (chunk.type === "chunk") {
+          port.postMessage({ type: "chunk", content: chunk.content } as StreamChunk)
         }
-        // done 类型在循环结束后处理
       }
 
       port.postMessage({ type: "done" } as StreamChunk)
-      console.log("✅ 流式聊天完成")
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "未知错误"
-      console.error("❌ 流式聊天错误:", errorMessage)
+      console.error(`Stream error on ${port.name}:`, errorMessage)
       port.postMessage({ type: "error", error: errorMessage } as StreamChunk)
     } finally {
       activeStreams.delete(streamId)
     }
   })
 
-  // 处理中断请求
   port.onDisconnect.addListener(() => {
-    console.log("🔌 Chat stream port disconnected")
-    // 中断所有该 port 关联的流
     activeStreams.forEach((controller) => controller.abort())
   })
+}
+
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === "chat_stream") {
+    handleStreamPort(port, (request: StartChatStreamRequest) => {
+      if (request.action !== "start_chat_stream") return null
+      return request.data.messages
+    })
+    return
+  }
+
+  if (port.name === "review_stream") {
+    handleReviewStreamPort(port)
+    return
+  }
 })
 
-// 监听来自 content script 的消息
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log("Received message:", request)
-
+chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   if (request.action === "generate_reply") {
     handleGenerateReply(request.data as GenerateRequest)
-      .then((response) => {
-        sendResponse(response)
-      })
+      .then(sendResponse)
       .catch((error) => {
-        console.error("Error generating reply:", error)
         sendResponse({
           success: false,
-          error: error.message || "生成回复失败",
+          error: error instanceof Error ? error.message : "生成回复失败",
         } as GenerateResponse)
       })
-
-    // 返回 true 表示异步响应
     return true
   }
 
-  // 处理中断流式请求
   if (request.action === "abort_chat_stream") {
-    const streamId = request.streamId
-    const controller = activeStreams.get(streamId)
+    const controller = activeStreams.get(request.streamId)
     if (controller) {
       controller.abort()
-      activeStreams.delete(streamId)
+      activeStreams.delete(request.streamId)
       sendResponse({ success: true })
     } else {
       sendResponse({ success: false, error: "Stream not found" })
@@ -112,52 +94,98 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true
   }
 
+  if (request.action === "test_model") {
+    handleTestModel(request.provider)
+      .then(sendResponse)
+      .catch((error) => {
+        sendResponse({ success: false, error: error instanceof Error ? error.message : "测试失败" })
+      })
+    return true
+  }
+
+  if (request.action === "fetch_models") {
+    handleFetchModels(request.provider)
+      .then(sendResponse)
+      .catch((error) => {
+        sendResponse({ success: false, error: error instanceof Error ? error.message : "获取模型失败" })
+      })
+    return true
+  }
+
   return false
 })
 
-/**
- * 处理生成回复请求
- */
-async function handleGenerateReply(
-  request: GenerateRequest
-): Promise<GenerateResponse> {
+function handleReviewStreamPort(port: chrome.runtime.Port) {
+  port.onMessage.addListener(async (request: { action: string; context: ReviewContext }) => {
+    if (request.action !== "start_review_stream") return
+
+    const streamId = `review-${Date.now()}`
+    const abortController = new AbortController()
+    activeStreams.set(streamId, abortController)
+
+    port.postMessage({ type: "stream_id", streamId })
+
+    try {
+      const isEnabled = await StorageService.isEnabled()
+      if (!isEnabled) throw new Error("插件已暂停")
+
+      const providerType = await StorageService.getProvider()
+      const hasApiKey = await StorageService.validateApiKey(providerType)
+      if (!hasApiKey) {
+        throw new Error(`请先配置 ${providerType === "openai" ? "OpenAI" : "Gemini"} API Key`)
+      }
+
+      const promptTemplate = await StorageService.getPrompt()
+      const prompt = buildPrompt(promptTemplate, request.context)
+
+      const provider = await ModelFactory.createCurrentProvider()
+      const stream = provider.generateReplyStream(
+        [{ role: "user", content: prompt }],
+        abortController.signal
+      )
+
+      for await (const chunk of stream) {
+        if (abortController.signal.aborted) break
+        if (chunk.type === "thinking") {
+          port.postMessage({ type: "thinking", thinking: chunk.thinking } as StreamChunk)
+        } else if (chunk.type === "chunk") {
+          port.postMessage({ type: "chunk", content: chunk.content } as StreamChunk)
+        }
+      }
+
+      port.postMessage({ type: "done" } as StreamChunk)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "未知错误"
+      port.postMessage({ type: "error", error: errorMessage } as StreamChunk)
+    } finally {
+      activeStreams.delete(streamId)
+    }
+  })
+
+  port.onDisconnect.addListener(() => {
+    activeStreams.forEach((controller) => controller.abort())
+  })
+}
+
+async function handleGenerateReply(request: GenerateRequest): Promise<GenerateResponse> {
   try {
-    // 1. 检查插件是否启用
     const isEnabled = await StorageService.isEnabled()
-    if (!isEnabled) {
-      throw new Error("插件已暂停")
-    }
+    if (!isEnabled) throw new Error("插件已暂停")
 
-    // 2. 获取当前 Provider 和 API Key
-    const provider = await StorageService.getProvider()
-    console.log("🔍 当前选择的 Provider:", provider)
-    
-    const hasApiKey = await StorageService.validateApiKey(provider)
-    
+    const providerType = await StorageService.getProvider()
+    const hasApiKey = await StorageService.validateApiKey(providerType)
     if (!hasApiKey) {
-      throw new Error(`请先配置 ${provider === "openai" ? "OpenAI" : provider === "gemini" ? "Gemini" : provider === "zenmux" ? "ZenMux" : "Custom"} API Key`)
+      throw new Error(`请先配置 ${providerType === "openai" ? "OpenAI" : "Gemini"} API Key`)
     }
 
-    // 3. 获取 Review Prompt 模板
     const promptTemplate = await StorageService.getPrompt()
-
-    // 4. 替换变量
     const prompt = buildPrompt(promptTemplate, request.context)
 
-    // 5. 创建 Provider 并调用 AI
-    const llmProvider = await ModelFactory.createCurrentProvider()
-    console.log("🚀 开始调用 AI Provider:", provider)
-    
-    const reply = await llmProvider.generateReply(prompt)
-    
-    console.log("✅ AI 回复生成成功，Provider:", provider)
+    const provider = await ModelFactory.createCurrentProvider()
+    const reply = await provider.generateReply(prompt)
 
-    return {
-      success: true,
-      data: reply,
-    }
+    return { success: true, data: reply }
   } catch (error) {
-    console.error("Generate reply error:", error)
     return {
       success: false,
       error: error instanceof Error ? error.message : "未知错误",
@@ -165,13 +193,37 @@ async function handleGenerateReply(
   }
 }
 
-/**
- * 构建 Prompt（替换变量）
- */
-function buildPrompt(
-  template: string,
-  context: ReviewContext
-): string {
+async function handleTestModel(providerType?: string): Promise<{ success: boolean; reply?: string; error?: string }> {
+  try {
+    const provider = providerType
+      ? await ModelFactory.createProvider(providerType as "openai" | "gemini")
+      : await ModelFactory.createCurrentProvider()
+    const reply = await provider.generateReply("Say 'OK' in one word.")
+    return { success: true, reply: reply.slice(0, 200) }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "测试失败",
+    }
+  }
+}
+
+async function handleFetchModels(providerType?: string): Promise<{ success: boolean; models?: string[]; error?: string }> {
+  try {
+    const provider = providerType
+      ? await ModelFactory.createProvider(providerType as "openai" | "gemini")
+      : await ModelFactory.createCurrentProvider()
+    const models = await provider.fetchModels()
+    return { success: true, models }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "获取模型失败",
+    }
+  }
+}
+
+function buildPrompt(template: string, context: ReviewContext): string {
   return template
     .replace(/\{\{review_content\}\}/g, context.reviewContent || "")
     .replace(/\{\{rating\}\}/g, context.rating || "5")

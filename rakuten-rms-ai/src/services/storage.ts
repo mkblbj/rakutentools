@@ -1,6 +1,5 @@
 import type { UserSettings, ProviderType } from "~types"
 
-// 默认 Prompts
 export const DEFAULT_REVIEW_PROMPT = `**【人物設定】**  
 あなたはオンラインショップの店長です。  
 謙虚で親しみやすく、お客様の気持ちに寄り添った自然な会話文で返信します。機械的な定型文は避けます。
@@ -25,7 +24,7 @@ export const DEFAULT_REVIEW_PROMPT = `**【人物設定】**
 - 商品名（{{product_name}}）は、**呼び名として必要な場合のみ1回まで**使用可（それ以上は使わない）。
 
 ### 2) 文字数
-- 返信文は**200〜600文字**（日本語）に必ず収める。短すぎる場合は言い換えや補足で自然に増やす。
+- 返信文は**400〜600文字**（日本語）に必ず収める。短すぎる場合は言い換えや補足で自然に増やす。
 
 ### 3) 改行
 - 読みやすさのため、**必ず改行**する（目安：3〜6行）。
@@ -92,66 +91,48 @@ export const DEFAULT_REVIEW_PROMPT = `**【人物設定】**
 ## 【出力形式】
 - 上記ルールに従い、**返信文のみ**を出力する（説明・前置きは書かない）。`
 
-// 默认设置
 const DEFAULT_SETTINGS: UserSettings = {
-  provider: "custom",
-  customApiKey: "",
-  customBaseUrl: "",
-  customModel: "",
+  provider: "gemini",
   openaiKey: "",
+  openaiModel: "",
+  openaiBaseUrl: "https://api.openai.com/v1",
+  openaiMaxOutputTokens: 2048,
+  openaiReasoningEffort: "low",
   geminiKey: "",
-  geminiModel: "gemini-2.5-flash",
-  zenmuxKey: "",
-  zenmuxModel: "openai/gpt-4o-mini",
-  manusKey: "",
-  manusModel: "manus-1.6",
+  geminiModel: "",
+  geminiBaseUrl: "https://generativelanguage.googleapis.com",
+  geminiMaxOutputTokens: 2048,
+  geminiThinkingBudget: 0,
   enabled: true,
-  maxTokens: 4000,
   reviewPrompt: DEFAULT_REVIEW_PROMPT,
 }
 
-/**
- * 存储服务 - 封装 chrome.storage.local 操作
- */
+const STORAGE_KEYS = [
+  "provider",
+  "openaiKey",
+  "openaiModel",
+  "openaiBaseUrl",
+  "openaiMaxOutputTokens",
+  "openaiReasoningEffort",
+  "geminiKey",
+  "geminiModel",
+  "geminiBaseUrl",
+  "geminiMaxOutputTokens",
+  "geminiThinkingBudget",
+  "reviewPrompt",
+  "enabled",
+] as const
+
 export class StorageService {
-  /**
-   * 获取所有设置
-   */
   static async getSettings(): Promise<UserSettings> {
     return new Promise((resolve) => {
-      chrome.storage.local.get(
-        [
-          "customApiKey",
-          "customBaseUrl",
-          "customModel",
-          "openaiKey",
-          "geminiKey",
-          "zenmuxKey",
-          "manusKey",
-          "provider",
-          "geminiModel",
-          "zenmuxModel",
-          "manusModel",
-          "reviewPrompt",
-          "enabled",
-          "maxTokens",
-        ],
-        (result) => {
-          resolve({
-            ...DEFAULT_SETTINGS,
-            ...result,
-          } as UserSettings)
-        }
-      )
+      chrome.storage.local.get([...STORAGE_KEYS], (result) => {
+        resolve({ ...DEFAULT_SETTINGS, ...result } as UserSettings)
+      })
     })
   }
 
-  /**
-   * 保存设置（部分更新）
-   */
-  static async saveSettings(
-    settings: Partial<UserSettings>
-  ): Promise<void> {
+  static async saveSettings(settings: Partial<UserSettings>): Promise<void> {
     return new Promise((resolve, reject) => {
       chrome.storage.local.set(settings, () => {
         if (chrome.runtime.lastError) {
@@ -163,125 +144,38 @@ export class StorageService {
     })
   }
 
-  /**
-   * 获取 API Key
-   */
   static async getApiKey(provider: ProviderType): Promise<string | undefined> {
     const settings = await this.getSettings()
     switch (provider) {
-      case "custom":
-        return settings.customApiKey
       case "openai":
         return settings.openaiKey
       case "gemini":
         return settings.geminiKey
-      case "zenmux":
-        return settings.zenmuxKey
-      case "manus":
-        return settings.manusKey
       default:
         return undefined
     }
   }
 
-  /**
-   * 获取当前使用的 Provider
-   */
   static async getProvider(): Promise<ProviderType> {
     const settings = await this.getSettings()
     return settings.provider
   }
 
-  /**
-   * 获取 Gemini 模型
-   */
-  static async getGeminiModel(): Promise<"gemini-3-pro-preview" | "gemini-2.5-flash" | "gemini-2.5-flash-lite" | "gemini-2.0-flash-lite"> {
-    const settings = await this.getSettings()
-    return settings.geminiModel || "gemini-2.5-flash"
-  }
-
-  /**
-   * 设置 Gemini 模型
-   */
-  static async setGeminiModel(model: "gemini-3-pro-preview" | "gemini-2.5-flash" | "gemini-2.5-flash-lite" | "gemini-2.0-flash-lite"): Promise<void> {
-    const settings = await this.getSettings()
-    settings.geminiModel = model
-    await this.saveSettings(settings)
-  }
-
-  /**
-   * 获取 ZenMux 模型
-   */
-  static async getZenMuxModel(): Promise<string> {
-    const settings = await this.getSettings()
-    return settings.zenmuxModel || "openai/gpt-4o-mini"
-  }
-
-  /**
-   * 设置 ZenMux 模型
-   */
-  static async setZenMuxModel(model: string): Promise<void> {
-    await this.saveSettings({ zenmuxModel: model })
-  }
-
-  /**
-   * 获取 Manus 模型
-   */
-  static async getManusModel(): Promise<string> {
-    const settings = await this.getSettings()
-    return settings.manusModel || "manus-1.6"
-  }
-
-  /**
-   * 设置 Manus 模型
-   */
-  static async setManusModel(model: string): Promise<void> {
-    await this.saveSettings({ manusModel: model })
-  }
-
-  /**
-   * 获取 Custom Base URL
-   */
-  static async getCustomBaseUrl(): Promise<string> {
-    const settings = await this.getSettings()
-    return settings.customBaseUrl || ""
-  }
-
-  /**
-   * 获取 Custom 模型
-   */
-  static async getCustomModel(): Promise<string> {
-    const settings = await this.getSettings()
-    return settings.customModel || ""
-  }
-
-  /**
-   * 获取 Prompt 模板
-   */
   static async getPrompt(): Promise<string> {
     const settings = await this.getSettings()
     return settings.reviewPrompt || DEFAULT_REVIEW_PROMPT
   }
 
-  /**
-   * 检查插件是否启用
-   */
   static async isEnabled(): Promise<boolean> {
     const settings = await this.getSettings()
     return settings.enabled !== false
   }
 
-  /**
-   * 验证 API Key 是否存在
-   */
   static async validateApiKey(provider: ProviderType): Promise<boolean> {
     const apiKey = await this.getApiKey(provider)
     return !!apiKey && apiKey.length > 0
   }
 
-  /**
-   * 清除所有设置（用于测试）
-   */
   static async clearSettings(): Promise<void> {
     return new Promise((resolve) => {
       chrome.storage.local.clear(() => {
@@ -290,11 +184,7 @@ export class StorageService {
     })
   }
 
-  /**
-   * 重置为默认设置
-   */
   static async resetToDefaults(): Promise<void> {
     await this.saveSettings(DEFAULT_SETTINGS)
   }
 }
-

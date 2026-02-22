@@ -1,86 +1,103 @@
-import type { LLMProvider, ProviderConfig } from "~types"
+import OpenAI from "openai"
+import type { LLMProvider, ProviderConfig, StreamChunk } from "~types"
 
-/**
- * OpenAI Provider - 调用 OpenAI API
- */
 export class OpenAIProvider implements LLMProvider {
-  private apiKey: string
+  private client: OpenAI
   private model: string
+  private maxOutputTokens: number
+  private reasoningEffort: "low" | "medium" | "high"
   private temperature: number
-  private maxTokens: number
 
   constructor(config: ProviderConfig) {
-    this.apiKey = config.apiKey
-    this.model = config.model || "gpt-4o-mini"
+    this.client = new OpenAI({
+      apiKey: config.apiKey,
+      baseURL: config.baseURL || "https://api.openai.com/v1",
+      dangerouslyAllowBrowser: true,
+    })
+    this.model = config.model || ""
+    this.maxOutputTokens = config.maxOutputTokens || 2048
+    this.reasoningEffort = config.reasoningEffort || "low"
     this.temperature = config.temperature ?? 0.7
-    this.maxTokens = config.maxTokens || 4000 // 增加到 4000
+  }
+
+  private isReasoningModel(): boolean {
+    const m = this.model.toLowerCase()
+    return m.startsWith("o1") || m.startsWith("o3") || m.startsWith("o4")
+  }
+
+  private ensureModel() {
+    if (!this.model) throw new Error("OpenAI 模型未设置，请在设置中选择模型")
   }
 
   async generateReply(prompt: string): Promise<string> {
-    if (!this.apiKey) {
-      throw new Error("OpenAI API Key 未配置")
+    this.ensureModel()
+    const params: OpenAI.ChatCompletionCreateParamsNonStreaming = {
+      model: this.model,
+      messages: [{ role: "user", content: prompt }],
+      max_completion_tokens: this.maxOutputTokens,
     }
 
-    console.log(`🤖 调用 OpenAI API - 模型: ${this.model}`)
-
-    try {
-      const response = await fetch(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${this.apiKey}`,
-          },
-          body: JSON.stringify({
-            model: this.model,
-            messages: [
-              {
-                role: "user",
-                content: prompt,
-              },
-            ],
-            temperature: this.temperature,
-            max_tokens: this.maxTokens,
-          }),
-        }
-      )
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(
-          error.error?.message || `OpenAI API 错误: ${response.status}`
-        )
-      }
-
-      const data = await response.json()
-      const content = data.choices[0]?.message?.content
-
-      if (!content) {
-        throw new Error("OpenAI 返回的内容为空")
-      }
-
-      console.log(`✅ OpenAI 回复成功 - 模型: ${this.model}, 长度: ${content.length} 字符`)
-
-      return content.trim()
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`OpenAI API 调用失败: ${error.message}`)
-      }
-      throw error
+    if (this.isReasoningModel()) {
+      ;(params as any).reasoning_effort = this.reasoningEffort
+    } else {
+      params.temperature = this.temperature
     }
+
+    const response = await this.client.chat.completions.create(params)
+    const content = response.choices[0]?.message?.content
+
+    if (!content) {
+      throw new Error("OpenAI returned empty content")
+    }
+
+    return content.trim()
   }
 
-  /**
-   * 测试 API Key 是否有效
-   */
-  async testConnection(): Promise<boolean> {
-    try {
-      await this.generateReply("测试连接")
-      return true
-    } catch {
-      return false
+  async *generateReplyStream(
+    messages: Array<{ role: string; content: string }>,
+    signal?: AbortSignal
+  ): AsyncGenerator<StreamChunk> {
+    this.ensureModel()
+    const params: OpenAI.ChatCompletionCreateParamsStreaming = {
+      model: this.model,
+      messages: messages as OpenAI.ChatCompletionMessageParam[],
+      max_completion_tokens: this.maxOutputTokens,
+      stream: true,
     }
+
+    if (this.isReasoningModel()) {
+      ;(params as any).reasoning_effort = this.reasoningEffort
+    } else {
+      params.temperature = this.temperature
+    }
+
+    const stream = await this.client.chat.completions.create(params, {
+      signal,
+    })
+
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta
+      if (!delta) continue
+
+      const reasoning = (delta as any).reasoning_content
+      if (reasoning) {
+        yield { type: "thinking", thinking: reasoning }
+      }
+
+      if (delta.content) {
+        yield { type: "chunk", content: delta.content }
+      }
+    }
+
+    yield { type: "done" }
+  }
+
+  async fetchModels(): Promise<string[]> {
+    const list = await this.client.models.list()
+    const models: string[] = []
+    for await (const model of list) {
+      models.push(model.id)
+    }
+    return models.sort()
   }
 }
-

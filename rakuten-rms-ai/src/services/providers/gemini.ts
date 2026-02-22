@@ -1,99 +1,97 @@
-import type { LLMProvider, ProviderConfig } from "~types"
+import { GoogleGenAI } from "@google/genai"
+import type { LLMProvider, ProviderConfig, StreamChunk } from "~types"
 
-/**
- * Gemini Provider - 调用 Google Generative AI API
- * 
- * 支持的模型:
- * - gemini-3-pro-preview: 最强大的 Gemini 3 Pro 预览版（推荐）
- * - gemini-2.5-flash: 2.5 标准快速模型（默认）
- * - gemini-2.5-flash-lite: 2.5 轻量级快速模型（配额独立）
- * - gemini-2.0-flash-lite: 2.0 轻量级快速模型（配额独立）
- * 
- * @see https://ai.google.dev/gemini-api/docs/models
- */
 export class GeminiProvider implements LLMProvider {
-  private apiKey: string
+  private genAI: GoogleGenAI
   private model: string
+  private maxOutputTokens: number
+  private thinkingBudget: number
   private temperature: number
-  private maxTokens: number
 
   constructor(config: ProviderConfig) {
-    this.apiKey = config.apiKey
-    // 默认使用 Gemini 2.5 Flash（经济实惠）
-    this.model = config.model || "gemini-2.5-flash"
-    // 标准 temperature
+    const baseUrl = config.baseURL || "https://generativelanguage.googleapis.com"
+    this.genAI = new GoogleGenAI({
+      apiKey: config.apiKey,
+      httpOptions: { baseUrl },
+    })
+    this.model = config.model || ""
+    this.maxOutputTokens = config.maxOutputTokens || 2048
+    this.thinkingBudget = config.thinkingBudget ?? 0
     this.temperature = config.temperature ?? 0.7
-    // 日语需要更多 tokens（1 token ≈ 1-2 日语字符）
-    this.maxTokens = config.maxTokens || 4000
+  }
+
+  private buildConfig() {
+    const config: Record<string, any> = {
+      maxOutputTokens: this.maxOutputTokens,
+      temperature: this.temperature,
+      thinkingConfig: { thinkingBudget: this.thinkingBudget },
+    }
+
+    return config
+  }
+
+  private ensureModel() {
+    if (!this.model) throw new Error("Gemini 模型未设置，请在设置中选择模型")
   }
 
   async generateReply(prompt: string): Promise<string> {
-    if (!this.apiKey) {
-      throw new Error("Gemini API Key 未配置")
+    this.ensureModel()
+    const response = await this.genAI.models.generateContent({
+      model: this.model,
+      contents: prompt,
+      config: this.buildConfig(),
+    })
+
+    const text = response.text
+    if (!text) {
+      throw new Error("Gemini returned empty content")
     }
 
-    console.log(`🤖 调用 Gemini API - 模型: ${this.model}`)
-
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`
-
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: prompt,
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: this.temperature,
-            maxOutputTokens: this.maxTokens,
-          },
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(
-          error.error?.message || `Gemini API 错误: ${response.status}`
-        )
-      }
-
-      const data = await response.json()
-      const content = data.candidates?.[0]?.content?.parts?.[0]?.text
-
-      if (!content) {
-        throw new Error("Gemini 返回的内容为空")
-      }
-
-      console.log(`✅ Gemini 回复成功 - 模型: ${this.model}, 长度: ${content.length} 字符`)
-
-      return content.trim()
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Gemini API 调用失败: ${error.message}`)
-      }
-      throw error
-    }
+    return text.trim()
   }
 
-  /**
-   * 测试 API Key 是否有效
-   */
-  async testConnection(): Promise<boolean> {
-    try {
-      await this.generateReply("测试连接")
-      return true
-    } catch {
-      return false
+  async *generateReplyStream(
+    messages: Array<{ role: string; content: string }>,
+    signal?: AbortSignal
+  ): AsyncGenerator<StreamChunk> {
+    this.ensureModel()
+    const contents = messages.map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }))
+
+    const response = await this.genAI.models.generateContentStream({
+      model: this.model,
+      contents,
+      config: this.buildConfig(),
+    })
+
+    for await (const chunk of response) {
+      if (signal?.aborted) break
+
+      const parts = chunk.candidates?.[0]?.content?.parts
+      if (!parts) continue
+
+      for (const part of parts) {
+        if (part.thought && part.text) {
+          yield { type: "thinking", thinking: part.text }
+        } else if (part.text) {
+          yield { type: "chunk", content: part.text }
+        }
+      }
     }
+
+    yield { type: "done" }
+  }
+
+  async fetchModels(): Promise<string[]> {
+    const pager = await this.genAI.models.list({ config: { pageSize: 100 } })
+    const models: string[] = []
+    for await (const model of pager) {
+      if (model.name) {
+        models.push(model.name.replace(/^models\//, ""))
+      }
+    }
+    return models.sort()
   }
 }
-

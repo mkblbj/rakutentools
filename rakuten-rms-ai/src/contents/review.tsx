@@ -1,27 +1,23 @@
 import type { PlasmoCSConfig, PlasmoGetInlineAnchorList } from "plasmo"
-import { useState, useEffect } from "react"
+import { useState, useRef } from "react"
 import { extractReviewData, REVIEW_SELECTORS } from "~utils/dom-selectors"
-import type { GenerateResponse, ReviewContext } from "~types"
+import type { ReviewContext, StreamChunk } from "~types"
 
-// 匹配 Rakuten Review 页面
 export const config: PlasmoCSConfig = {
   matches: ["https://review.rms.rakuten.co.jp/*"],
   all_frames: false,
 }
 
-// 获取所有需要注入按钮的位置（每个评论的回复框）
 export const getInlineAnchorList: PlasmoGetInlineAnchorList = async () => {
   const textareas = document.querySelectorAll<HTMLTextAreaElement>(
     REVIEW_SELECTORS.REPLY_TEXTAREA
   )
-
   return Array.from(textareas).map((textarea) => ({
     element: textarea,
     insertPosition: "afterend",
   }))
 }
 
-// 获取 Shadow Host 的样式（使按钮显示在评论框旁边）
 export const getStyle = () => {
   const style = document.createElement("style")
   style.textContent = `
@@ -33,13 +29,22 @@ export const getStyle = () => {
   return style
 }
 
-// UO AI 按钮组件
 const ReviewAIButton = () => {
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState<string>("")
+  const portRef = useRef<chrome.runtime.Port | null>(null)
+
+  const handleAbort = () => {
+    if (portRef.current) {
+      portRef.current.disconnect()
+      portRef.current = null
+    }
+    setLoading(false)
+    setStatus("中断しました")
+    setTimeout(() => setStatus(""), 3000)
+  }
 
   const handleGenerateReply = async () => {
-    // 获取当前按钮对应的 textarea
     const button = document.activeElement as HTMLElement
     const container = button?.closest("td") || button?.closest("div")
     const textarea = container?.querySelector<HTMLTextAreaElement>(
@@ -47,87 +52,95 @@ const ReviewAIButton = () => {
     )
 
     if (!textarea) {
-      setStatus("❌ 回复框未找到")
+      setStatus("回复框未找到")
       setTimeout(() => setStatus(""), 3000)
       return
     }
 
-    // 查找包含该 textarea 的评论容器
     let reviewContainer: Element | null = textarea
     for (let i = 0; i < 15; i++) {
       reviewContainer = reviewContainer?.parentElement || null
       if (!reviewContainer) break
-
       const detailDiv = reviewContainer.querySelector(REVIEW_SELECTORS.DETAIL_CONTAINER)
-      if (detailDiv) {
-        reviewContainer = reviewContainer // 找到了包含评论详情的容器
-        break
-      }
+      if (detailDiv) break
     }
 
     if (!reviewContainer) {
-      setStatus("❌ 评论容器未找到")
+      setStatus("評価容器未找到")
       setTimeout(() => setStatus(""), 3000)
       return
     }
 
-    // 提取评论数据
     const detailDiv = reviewContainer.querySelector(REVIEW_SELECTORS.DETAIL_CONTAINER)
     if (!detailDiv) {
-      setStatus("❌ 评论详情未找到")
+      setStatus("評価詳細未找到")
       setTimeout(() => setStatus(""), 3000)
       return
     }
 
     const reviewData = extractReviewData(detailDiv as HTMLElement)
     if (!reviewData) {
-      setStatus("❌ 评论数据提取失败")
+      setStatus("評価データ取得失敗")
       setTimeout(() => setStatus(""), 3000)
       return
     }
 
-    // 检查是否已有回复
     if (reviewData.hasExistingReply) {
       const confirmed = confirm("この評価は既に返信があります。再生成しますか？")
       if (!confirmed) return
     }
 
     setLoading(true)
-    setStatus("🤖 AI 生成中...")
+    setStatus("AI 生成中...")
+    textarea.value = ""
+
+    const context: ReviewContext = {
+      reviewContent: reviewData.reviewContent,
+      rating: reviewData.rating.toString(),
+      productName: reviewData.productName,
+    }
 
     try {
-      const context: ReviewContext = {
-        reviewContent: reviewData.reviewContent,
-        rating: reviewData.rating.toString(),
-        productName: reviewData.productName,
-      }
+      const port = chrome.runtime.connect({ name: "review_stream" })
+      portRef.current = port
 
-      const response: GenerateResponse = await chrome.runtime.sendMessage({
-        action: "generate_reply",
-        data: {
-          type: "review",
-          context,
-        },
+      port.onMessage.addListener((msg: StreamChunk & { streamId?: string }) => {
+        if (msg.type === "chunk" && msg.content) {
+          textarea.value += msg.content
+          textarea.dispatchEvent(new Event("input", { bubbles: true }))
+        } else if (msg.type === "done") {
+          textarea.dispatchEvent(new Event("change", { bubbles: true }))
+          setLoading(false)
+          setStatus("生成完了")
+          portRef.current = null
+          port.disconnect()
+          setTimeout(() => setStatus(""), 3000)
+        } else if (msg.type === "error") {
+          setLoading(false)
+          setStatus(msg.error || "生成失敗")
+          portRef.current = null
+          port.disconnect()
+          setTimeout(() => setStatus(""), 5000)
+        }
       })
 
-      if (response.success && response.data) {
-        // 填充回复到 textarea
-        textarea.value = response.data
-        textarea.dispatchEvent(new Event("input", { bubbles: true }))
-        textarea.dispatchEvent(new Event("change", { bubbles: true }))
+      port.onDisconnect.addListener(() => {
+        if (loading) {
+          setLoading(false)
+          setStatus("")
+        }
+        portRef.current = null
+      })
 
-        setStatus("✅ 生成成功")
-        setTimeout(() => setStatus(""), 3000)
-      } else {
-        setStatus(`❌ ${response.error || "生成失败"}`)
-        setTimeout(() => setStatus(""), 5000)
-      }
-    } catch (error: any) {
+      port.postMessage({
+        action: "start_review_stream",
+        context,
+      })
+    } catch (error: unknown) {
       console.error("生成回复失败:", error)
-      setStatus(`❌ ${error.message || "通信失败"}`)
-      setTimeout(() => setStatus(""), 5000)
-    } finally {
       setLoading(false)
+      setStatus(error instanceof Error ? error.message : "通信失敗")
+      setTimeout(() => setStatus(""), 5000)
     }
   }
 
@@ -141,17 +154,16 @@ const ReviewAIButton = () => {
         marginTop: "4px",
       }}>
       <button
-        onClick={handleGenerateReply}
-        disabled={loading}
+        onClick={loading ? handleAbort : handleGenerateReply}
         style={{
           padding: "6px 12px",
-          backgroundColor: loading ? "#9CA3AF" : "#2478AE",
+          backgroundColor: loading ? "#DC2626" : "#2478AE",
           color: "white",
           border: "none",
           borderRadius: "4px",
           fontSize: "13px",
           fontWeight: "600",
-          cursor: loading ? "not-allowed" : "pointer",
+          cursor: "pointer",
           display: "flex",
           alignItems: "center",
           gap: "6px",
@@ -180,7 +192,7 @@ const ReviewAIButton = () => {
                 animation: "spin 0.6s linear infinite",
               }}
             />
-            生成中...
+            中断
           </>
         ) : (
           <>
@@ -193,7 +205,7 @@ const ReviewAIButton = () => {
         <span
           style={{
             fontSize: "12px",
-            color: status.includes("✅") ? "#059669" : "#DC2626",
+            color: status.includes("完了") ? "#059669" : status.includes("中断") ? "#D97706" : "#DC2626",
             fontWeight: "500",
           }}>
           {status}
@@ -211,6 +223,3 @@ const ReviewAIButton = () => {
 }
 
 export default ReviewAIButton
-
-console.log("UO Rakutentools: Review page content script loaded")
-
