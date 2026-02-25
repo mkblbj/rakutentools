@@ -2,22 +2,24 @@ import { useState, useEffect } from "react"
 import "./style.css"
 import { StorageService } from "~services"
 import type { ProviderType } from "~types"
+import { I18nProvider, useI18n, LANGUAGES } from "~i18n"
 
 function IndexPopup() {
+  const { t, lang, setLang } = useI18n()
   const [isEnabled, setIsEnabled] = useState(true)
-  const [status, setStatus] = useState("就绪")
+  const [statusKey, setStatusKey] = useState<"popup.ready" | "popup.pausedStatus" | "popup.enabledStatus">("popup.ready")
   const [provider, setProvider] = useState<ProviderType>("gemini")
   const [currentModel, setCurrentModel] = useState("")
 
   useEffect(() => {
     StorageService.getSettings().then((s) => {
       setIsEnabled(s.enabled !== false)
-      setStatus(s.enabled !== false ? "就绪" : "已暂停")
+      setStatusKey(s.enabled !== false ? "popup.ready" : "popup.pausedStatus")
       setProvider(s.provider)
       setCurrentModel(
         s.provider === "openai"
-          ? s.openaiModel || "(未设置)"
-          : s.geminiModel || "(未设置)"
+          ? s.openaiModel || ""
+          : s.geminiModel || ""
       )
     })
   }, [])
@@ -26,7 +28,7 @@ function IndexPopup() {
     const newState = !isEnabled
     setIsEnabled(newState)
     await StorageService.saveSettings({ enabled: newState })
-    setStatus(newState ? "已启用" : "已暂停")
+    setStatusKey(newState ? "popup.enabledStatus" : "popup.pausedStatus")
   }
 
   const handleProviderChange = async (p: ProviderType) => {
@@ -35,8 +37,8 @@ function IndexPopup() {
     const s = await StorageService.getSettings()
     setCurrentModel(
       p === "openai"
-        ? s.openaiModel || "(未设置)"
-        : s.geminiModel || "(未设置)"
+        ? s.openaiModel || ""
+        : s.geminiModel || ""
     )
   }
 
@@ -46,26 +48,26 @@ function IndexPopup() {
         <img src="https://pic.x-yue.top/i/2026/02/25/kr8o0q.png" alt="UO" className="w-10 h-10 rounded-lg" />
         <div>
           <h1 className="text-xl font-bold text-gray-800">UO Rakutentools</h1>
-          <p className="text-sm text-gray-500">AI ツール</p>
+          <p className="text-sm text-gray-500">{t("popup.subtitle")}</p>
         </div>
       </div>
 
       <div className="space-y-4">
         <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
           <div>
-            <p className="text-sm font-medium text-gray-700">插件状态</p>
-            <p className="text-xs text-gray-500">{status}</p>
+            <p className="text-sm font-medium text-gray-700">{t("popup.pluginStatus")}</p>
+            <p className="text-xs text-gray-500">{t(statusKey)}</p>
           </div>
           <button
             onClick={toggleEnabled}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${isEnabled ? "text-white" : "bg-gray-300 text-gray-600 hover:bg-gray-400"}`}
             style={isEnabled ? { backgroundColor: "#2478AE" } : {}}>
-            {isEnabled ? "启用中" : "已暂停"}
+            {isEnabled ? t("popup.enabled") : t("popup.paused")}
           </button>
         </div>
 
         <div className="p-3 bg-gray-50 rounded-lg">
-          <p className="text-sm font-medium text-gray-700 mb-2">AI Provider</p>
+          <p className="text-sm font-medium text-gray-700 mb-2">{t("popup.aiProvider")}</p>
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => handleProviderChange("openai")}
@@ -81,20 +83,41 @@ function IndexPopup() {
             </button>
           </div>
           <p className="mt-2 text-xs text-gray-500">
-            当前模型: {currentModel}
+            {t("popup.currentModel")}: {currentModel || t("popup.notSet")}
           </p>
         </div>
 
         <button
           onClick={() => chrome.runtime.openOptionsPage()}
           className="w-full py-3 px-4 bg-white border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors">
-          完整设置
+          {t("popup.fullSettings")}
         </button>
 
-        <div className="text-xs text-gray-400 text-center pt-2">v0.0.1</div>
+        <div className="flex items-center justify-between pt-2">
+          <div className="flex rounded-md overflow-hidden border border-gray-200">
+            {LANGUAGES.map(({ code, label }) => (
+              <button
+                key={code}
+                onClick={() => setLang(code)}
+                className={`px-2.5 py-1 text-xs transition-colors ${lang === code ? "text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}
+                style={lang === code ? { backgroundColor: "#2478AE" } : {}}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <span className="text-xs text-gray-400">v0.0.1</span>
+        </div>
       </div>
     </div>
   )
 }
 
-export default IndexPopup
+function PopupPage() {
+  return (
+    <I18nProvider>
+      <IndexPopup />
+    </I18nProvider>
+  )
+}
+
+export default PopupPage

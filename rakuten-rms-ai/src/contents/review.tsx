@@ -2,6 +2,7 @@ import type { PlasmoCSConfig, PlasmoGetInlineAnchorList } from "plasmo"
 import { useState, useRef } from "react"
 import { extractReviewData, REVIEW_SELECTORS } from "~utils/dom-selectors"
 import type { ReviewContext, StreamChunk } from "~types"
+import { useContentI18n, type TranslationKey } from "~i18n"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://review.rms.rakuten.co.jp/*"],
@@ -35,10 +36,27 @@ interface ReviewAIButtonProps {
   }
 }
 
+type StatusType = "success" | "warning" | "error" | ""
+
+const STATUS_COLORS: Record<StatusType, string> = {
+  success: "#059669",
+  warning: "#D97706",
+  error: "#DC2626",
+  "": "",
+}
+
 const ReviewAIButton = ({ anchor }: ReviewAIButtonProps) => {
+  const { t } = useContentI18n()
   const [loading, setLoading] = useState(false)
-  const [status, setStatus] = useState<string>("")
+  const [status, setStatus] = useState("")
+  const [statusType, setStatusType] = useState<StatusType>("")
   const portRef = useRef<chrome.runtime.Port | null>(null)
+
+  const showStatus = (key: TranslationKey, type: StatusType, timeout = 3000) => {
+    setStatus(t(key))
+    setStatusType(type)
+    setTimeout(() => { setStatus(""); setStatusType("") }, timeout)
+  }
 
   const handleAbort = () => {
     if (portRef.current) {
@@ -46,8 +64,7 @@ const ReviewAIButton = ({ anchor }: ReviewAIButtonProps) => {
       portRef.current = null
     }
     setLoading(false)
-    setStatus("中断しました")
-    setTimeout(() => setStatus(""), 3000)
+    showStatus("cs.aborted", "warning")
   }
 
   const handleGenerateReply = async () => {
@@ -55,8 +72,7 @@ const ReviewAIButton = ({ anchor }: ReviewAIButtonProps) => {
       anchor?.element instanceof HTMLTextAreaElement ? anchor.element : null
 
     if (!textarea) {
-      setStatus("回复框未找到")
-      setTimeout(() => setStatus(""), 3000)
+      showStatus("cs.replyBoxNotFound", "error")
       return
     }
 
@@ -74,25 +90,24 @@ const ReviewAIButton = ({ anchor }: ReviewAIButtonProps) => {
     }
 
     if (!reviewContainer || !detailDiv) {
-      setStatus("評価容器未找到")
-      setTimeout(() => setStatus(""), 3000)
+      showStatus("cs.reviewContainerNotFound", "error")
       return
     }
 
     const reviewData = extractReviewData(detailDiv as HTMLElement)
     if (!reviewData) {
-      setStatus("評価データ取得失敗")
-      setTimeout(() => setStatus(""), 3000)
+      showStatus("cs.reviewDataFetchFail", "error")
       return
     }
 
     if (reviewData.hasExistingReply) {
-      const confirmed = confirm("この評価は既に返信があります。再生成しますか？")
+      const confirmed = confirm(t("cs.confirmExistingReply"))
       if (!confirmed) return
     }
 
     setLoading(true)
-    setStatus("AI 生成中...")
+    setStatus(t("cs.generating"))
+    setStatusType("")
     textarea.value = ""
 
     const context: ReviewContext = {
@@ -112,16 +127,16 @@ const ReviewAIButton = ({ anchor }: ReviewAIButtonProps) => {
         } else if (msg.type === "done") {
           textarea.dispatchEvent(new Event("change", { bubbles: true }))
           setLoading(false)
-          setStatus("生成完了")
+          showStatus("cs.done", "success")
           portRef.current = null
           port.disconnect()
-          setTimeout(() => setStatus(""), 3000)
         } else if (msg.type === "error") {
           setLoading(false)
-          setStatus(msg.error || "生成失敗")
+          setStatus(msg.error || t("cs.failed"))
+          setStatusType("error")
+          setTimeout(() => { setStatus(""); setStatusType("") }, 5000)
           portRef.current = null
           port.disconnect()
-          setTimeout(() => setStatus(""), 5000)
         }
       })
 
@@ -129,6 +144,7 @@ const ReviewAIButton = ({ anchor }: ReviewAIButtonProps) => {
         if (loading) {
           setLoading(false)
           setStatus("")
+          setStatusType("")
         }
         portRef.current = null
       })
@@ -138,10 +154,11 @@ const ReviewAIButton = ({ anchor }: ReviewAIButtonProps) => {
         context,
       })
     } catch (error: unknown) {
-      console.error("生成回复失败:", error)
+      console.error("Generate reply failed:", error)
       setLoading(false)
-      setStatus(error instanceof Error ? error.message : "通信失敗")
-      setTimeout(() => setStatus(""), 5000)
+      setStatus(error instanceof Error ? error.message : t("cs.commFail"))
+      setStatusType("error")
+      setTimeout(() => { setStatus(""); setStatusType("") }, 5000)
     }
   }
 
@@ -193,12 +210,12 @@ const ReviewAIButton = ({ anchor }: ReviewAIButtonProps) => {
                 animation: "spin 0.6s linear infinite",
               }}
             />
-            中断
+            {t("cs.abort")}
           </>
         ) : (
           <>
             <span style={{ fontSize: "14px" }}>🤖</span>
-            UO AI 返信
+            {t("cs.aiReply")}
           </>
         )}
       </button>
@@ -206,7 +223,7 @@ const ReviewAIButton = ({ anchor }: ReviewAIButtonProps) => {
         <span
           style={{
             fontSize: "12px",
-            color: status.includes("完了") ? "#059669" : status.includes("中断") ? "#D97706" : "#DC2626",
+            color: STATUS_COLORS[statusType] || "#DC2626",
             fontWeight: "500",
           }}>
           {status}

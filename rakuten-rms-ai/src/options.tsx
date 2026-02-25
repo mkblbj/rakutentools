@@ -2,11 +2,14 @@ import { useState, useEffect } from "react"
 import "./style.css"
 import type { UserSettings } from "~types"
 import { StorageService, DEFAULT_REVIEW_PROMPT } from "~services"
+import { I18nProvider, useI18n, LANGUAGES } from "~i18n"
 
 function OptionsIndex() {
+  const { t, lang, setLang } = useI18n()
   const [activeTab, setActiveTab] = useState<"openai" | "gemini" | "prompts">("openai")
   const [settings, setSettings] = useState<UserSettings>({
     provider: "gemini",
+    language: "ja",
     openaiKey: "",
     openaiModel: "",
     openaiBaseUrl: "https://api.openai.com/v1",
@@ -39,10 +42,10 @@ function OptionsIndex() {
   const handleSave = async () => {
     try {
       await StorageService.saveSettings(settings)
-      setSaveStatus("保存成功")
+      setSaveStatus(t("options.saveSuccess"))
       setTimeout(() => setSaveStatus(""), 2000)
     } catch (error) {
-      setSaveStatus("保存失败")
+      setSaveStatus(t("options.saveFail"))
       console.error("Save error:", error)
     }
   }
@@ -50,7 +53,7 @@ function OptionsIndex() {
   const fetchModelsFor = async (provider: "openai" | "gemini") => {
     const key = provider === "openai" ? settings.openaiKey : settings.geminiKey
     if (!key) {
-      setSaveStatus(`请先填写 ${provider === "openai" ? "OpenAI" : "Gemini"} API Key`)
+      setSaveStatus(t("options.enterApiKeyFirst", { provider: provider === "openai" ? "OpenAI" : "Gemini" }))
       setTimeout(() => setSaveStatus(""), 2000)
       return
     }
@@ -66,13 +69,13 @@ function OptionsIndex() {
           chrome.storage.local.set({ _geminiModelsList: resp.models })
         }
         setCustomModelInput((prev) => ({ ...prev, [provider]: false }))
-        setSaveStatus(`获取到 ${resp.models.length} 个模型`)
+        setSaveStatus(t("options.fetchedModels", { count: resp.models.length }))
       } else {
-        setSaveStatus(resp.error || "获取失败")
+        setSaveStatus(resp.error || t("options.fetchFail"))
       }
       setTimeout(() => setSaveStatus(""), 3000)
     } catch {
-      setSaveStatus("获取模型失败")
+      setSaveStatus(t("options.fetchModelsFail"))
       setTimeout(() => setSaveStatus(""), 3000)
     } finally {
       setLoadingModels(null)
@@ -83,12 +86,12 @@ function OptionsIndex() {
     const key = provider === "openai" ? settings.openaiKey : settings.geminiKey
     const model = provider === "openai" ? settings.openaiModel : settings.geminiModel
     if (!key) {
-      setTestResult({ provider, ok: false, msg: "API Key 未填写" })
+      setTestResult({ provider, ok: false, msg: t("options.apiKeyMissing") })
       setTimeout(() => setTestResult(null), 4000)
       return
     }
     if (!model) {
-      setTestResult({ provider, ok: false, msg: "模型未选择" })
+      setTestResult({ provider, ok: false, msg: t("options.modelNotSelected") })
       setTimeout(() => setTestResult(null), 4000)
       return
     }
@@ -98,13 +101,13 @@ function OptionsIndex() {
       await StorageService.saveSettings(settings)
       const resp: any = await chrome.runtime.sendMessage({ action: "test_model", provider })
       if (resp.success) {
-        setTestResult({ provider, ok: true, msg: `连通成功: "${resp.reply}"` })
+        setTestResult({ provider, ok: true, msg: t("options.testSuccess", { reply: resp.reply }) })
       } else {
-        setTestResult({ provider, ok: false, msg: resp.error || "测试失败" })
+        setTestResult({ provider, ok: false, msg: resp.error || t("options.testFail") })
       }
       setTimeout(() => setTestResult(null), 6000)
     } catch {
-      setTestResult({ provider, ok: false, msg: "通信失败" })
+      setTestResult({ provider, ok: false, msg: t("options.commFail") })
       setTimeout(() => setTestResult(null), 4000)
     } finally {
       setTesting(null)
@@ -119,7 +122,20 @@ function OptionsIndex() {
         <div className="max-w-6xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <img src="https://pic.x-yue.top/i/2026/02/25/li6n6d.jpg" alt="UO Rakutentools" className="h-14 rounded-lg" />
-            <p className="text-sm text-gray-400">ツール配置</p>
+            <div className="flex items-center gap-4">
+              <div className="flex rounded-lg overflow-hidden border border-gray-200">
+                {LANGUAGES.map(({ code, label }) => (
+                  <button
+                    key={code}
+                    onClick={() => setLang(code)}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${lang === code ? "text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                    style={lang === code ? activeBtn : {}}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-sm text-gray-400">{t("options.toolConfig")}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -130,7 +146,7 @@ function OptionsIndex() {
             {([
               { key: "openai", label: "OpenAI" },
               { key: "gemini", label: "Gemini" },
-              { key: "prompts", label: "Prompt 编辑器" },
+              { key: "prompts", label: t("options.promptEditor") },
             ] as const).map(({ key, label }) => (
               <button
                 key={key}
@@ -139,7 +155,7 @@ function OptionsIndex() {
                 style={activeTab === key ? activeBtn : {}}>
                 {label}
                 {key !== "prompts" && settings.provider === key && (
-                  <span className="ml-2 text-xs opacity-75">(默认)</span>
+                  <span className="ml-2 text-xs opacity-75">{t("options.defaultSuffix")}</span>
                 )}
               </button>
             ))}
@@ -157,7 +173,7 @@ function OptionsIndex() {
                 style={activeBtn}
                 onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#1e6292" }}
                 onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#2478AE" }}>
-                保存设置
+                {t("common.save")}
               </button>
               {saveStatus && <span className="text-sm text-green-600">{saveStatus}</span>}
             </div>
@@ -173,19 +189,19 @@ function OptionsIndex() {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-800">{name} 配置</h2>
+          <h2 className="text-xl font-bold text-gray-800">{t("options.config", { provider: name })}</h2>
           {isDefault ? (
-            <span className="px-3 py-1 text-xs rounded-full text-white" style={activeBtn}>当前默认</span>
+            <span className="px-3 py-1 text-xs rounded-full text-white" style={activeBtn}>{t("options.currentDefault")}</span>
           ) : (
             <button
               onClick={() => setSettings({ ...settings, provider })}
               className="px-3 py-1 text-xs rounded-full bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors">
-              设为默认
+              {t("options.setDefault")}
             </button>
           )}
         </div>
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 leading-relaxed">
-          <strong>Token 预算说明:</strong> 「可见输出 Token」只控制回复长度，思考 token 由独立参数控制，互不挤占。
+          <strong>{t("options.tokenBudgetNoteLabel")}:</strong> {t("options.tokenBudgetNote")}
         </div>
         {provider === "openai" ? renderOpenAISection() : renderGeminiSection()}
       </div>
@@ -197,33 +213,33 @@ function OptionsIndex() {
       <div className="space-y-5">
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t("options.apiKey")}</label>
           <input type="password" value={settings.openaiKey || ""} onChange={(e) => setSettings({ ...settings, openaiKey: e.target.value })} placeholder="sk-..." className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-          <p className="mt-1 text-xs text-gray-500">从 <a href="https://platform.openai.com/api-keys" target="_blank" className="text-blue-600 hover:underline">OpenAI Platform</a> 获取</p>
+          <p className="mt-1 text-xs text-gray-500">{t("options.apiKeyFromOpenai")} — <a href="https://platform.openai.com/api-keys" target="_blank" className="text-blue-600 hover:underline">platform.openai.com</a></p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Base URL</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t("options.baseUrl")}</label>
           <input type="text" value={settings.openaiBaseUrl || ""} onChange={(e) => setSettings({ ...settings, openaiBaseUrl: e.target.value })} placeholder="https://api.openai.com/v1" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-          <p className="mt-1 text-xs text-gray-500">完整请求路径: <code className="bg-gray-100 px-1 rounded">{settings.openaiBaseUrl || "https://api.openai.com/v1"}/chat/completions</code></p>
+          <p className="mt-1 text-xs text-gray-500">{t("options.fullRequestPath")}: <code className="bg-gray-100 px-1 rounded">{settings.openaiBaseUrl || "https://api.openai.com/v1"}/chat/completions</code></p>
         </div>
 
         {renderModelSelector("openai", openaiModels, settings.openaiModel || "", (v) => setSettings({ ...settings, openaiModel: v }))}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">可见输出 Token: <span className="font-bold text-gray-900">{settings.openaiMaxOutputTokens ?? 2048}</span></label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t("options.visibleOutputTokens")}: <span className="font-bold text-gray-900">{settings.openaiMaxOutputTokens ?? 2048}</span></label>
           <input type="range" min={512} max={8192} step={256} value={settings.openaiMaxOutputTokens ?? 2048} onChange={(e) => setSettings({ ...settings, openaiMaxOutputTokens: Number(e.target.value) })} className="w-full" />
           <div className="flex justify-between text-xs text-gray-400 mt-1"><span>512</span><span>8192</span></div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">思考深度 (reasoning_effort)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t("options.reasoningEffort")}</label>
           <select value={settings.openaiReasoningEffort || "low"} onChange={(e) => setSettings({ ...settings, openaiReasoningEffort: e.target.value as "low" | "medium" | "high" })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-            <option value="low">low (省 token)</option>
-            <option value="medium">medium</option>
-            <option value="high">high (深度思考)</option>
+            <option value="low">{t("options.reasoningLow")}</option>
+            <option value="medium">{t("options.reasoningMedium")}</option>
+            <option value="high">{t("options.reasoningHigh")}</option>
           </select>
-          <p className="mt-1 text-xs text-gray-500">思考 tokens 不占用输出预算。仅 o 系列模型有效，其他模型自动忽略。</p>
+          <p className="mt-1 text-xs text-gray-500">{t("options.reasoningNote")}</p>
         </div>
 
         <div className="pt-3 border-t border-gray-200">
@@ -231,7 +247,7 @@ function OptionsIndex() {
             onClick={() => testModel("openai")}
             disabled={testing === "openai"}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${testing === "openai" ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>
-            {testing === "openai" ? "测试中..." : "测试连通性"}
+            {testing === "openai" ? t("options.testing") : t("options.testConnection")}
           </button>
           {testResult?.provider === "openai" && (
             <span className={`ml-3 text-xs ${testResult.ok ? "text-emerald-600" : "text-red-600"}`}>
@@ -248,22 +264,22 @@ function OptionsIndex() {
       <div className="space-y-5">
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t("options.apiKey")}</label>
           <input type="password" value={settings.geminiKey || ""} onChange={(e) => setSettings({ ...settings, geminiKey: e.target.value })} placeholder="AIza..." className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-          <p className="mt-1 text-xs text-gray-500">从 <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-blue-600 hover:underline">Google AI Studio</a> 获取</p>
+          <p className="mt-1 text-xs text-gray-500">{t("options.apiKeyFromGemini")} — <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-blue-600 hover:underline">aistudio.google.com</a></p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Base URL</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t("options.baseUrl")}</label>
           <input type="text" value={settings.geminiBaseUrl || ""} onChange={(e) => setSettings({ ...settings, geminiBaseUrl: e.target.value })} placeholder="https://generativelanguage.googleapis.com" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-          <p className="mt-1 text-xs text-gray-500">完整请求路径: <code className="bg-gray-100 px-1 rounded">{settings.geminiBaseUrl || "https://generativelanguage.googleapis.com"}{"/v1beta/models/{model}:generateContent"}</code></p>
-          <p className="mt-0.5 text-xs text-gray-400">SDK 自动追加 /v1beta 版本路径，此处只填域名即可</p>
+          <p className="mt-1 text-xs text-gray-500">{t("options.fullRequestPath")}: <code className="bg-gray-100 px-1 rounded">{settings.geminiBaseUrl || "https://generativelanguage.googleapis.com"}{"/v1beta/models/{model}:generateContent"}</code></p>
+          <p className="mt-0.5 text-xs text-gray-400">{t("options.sdkAutoAppendNote")}</p>
         </div>
 
         {renderModelSelector("gemini", geminiModels, settings.geminiModel || "", (v) => setSettings({ ...settings, geminiModel: v }))}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">可见输出 Token: <span className="font-bold text-gray-900">{settings.geminiMaxOutputTokens ?? 2048}</span></label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t("options.visibleOutputTokens")}: <span className="font-bold text-gray-900">{settings.geminiMaxOutputTokens ?? 2048}</span></label>
           <input type="range" min={512} max={8192} step={256} value={settings.geminiMaxOutputTokens ?? 2048} onChange={(e) => setSettings({ ...settings, geminiMaxOutputTokens: Number(e.target.value) })} className="w-full" />
           <div className="flex justify-between text-xs text-gray-400 mt-1"><span>512</span><span>8192</span></div>
         </div>
@@ -276,21 +292,21 @@ function OptionsIndex() {
             const visibleTokens = settings.geminiMaxOutputTokens ?? 2048
             const totalTokens = visibleTokens + effectiveBudget
             const label = isProModel
-              ? (budget === 0 ? `最低 1024 (实际: ${effectiveBudget})` : String(effectiveBudget))
-              : (budget === 0 ? "关闭" : String(budget))
-            const minLabel = isProModel ? "0 → 最低 1024" : "0 (关闭)"
+              ? (budget === 0 ? t("options.thinkingMin1024Label", { effectiveBudget }) : String(effectiveBudget))
+              : (budget === 0 ? t("options.thinkingOff") : String(budget))
+            const minLabel = isProModel ? t("options.thinkingMinSlider") : t("options.thinkingOffSlider")
             return (
               <>
-                <label className="block text-sm font-medium text-gray-700 mb-1">思考预算 (thinkingBudget): <span className="font-bold text-gray-900">{label}</span></label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t("options.thinkingBudget")}: <span className="font-bold text-gray-900">{label}</span></label>
                 <input type="range" min={0} max={8192} step={512} value={budget} onChange={(e) => setSettings({ ...settings, geminiThinkingBudget: Number(e.target.value) })} className="w-full" />
                 <div className="flex justify-between text-xs text-gray-400 mt-1"><span>{minLabel}</span><span>8192</span></div>
                 {isProModel ? (
-                  <p className="mt-1 text-xs text-amber-600">Pro 模型强制开启思考且最低 1024。API 实际 maxOutputTokens = 可见({visibleTokens}) + 思考({effectiveBudget}) = {totalTokens}</p>
+                  <p className="mt-1 text-xs text-amber-600">{t("options.proModelNote", { visible: visibleTokens, thinking: effectiveBudget, total: totalTokens })}</p>
                 ) : (
                   effectiveBudget > 0 ? (
-                    <p className="mt-1 text-xs text-gray-500">API 实际 maxOutputTokens = 可见({visibleTokens}) + 思考({effectiveBudget}) = {totalTokens}。Gemini 的 maxOutputTokens 包含思考 token。</p>
+                    <p className="mt-1 text-xs text-gray-500">{t("options.thinkingOnNote", { visible: visibleTokens, thinking: effectiveBudget, total: totalTokens })}</p>
                   ) : (
-                    <p className="mt-1 text-xs text-gray-500">思考已关闭，评价回复推荐此设置。开启后思考 token 会计入 maxOutputTokens 总预算。</p>
+                    <p className="mt-1 text-xs text-gray-500">{t("options.thinkingOffNote")}</p>
                   )
                 )}
               </>
@@ -303,7 +319,7 @@ function OptionsIndex() {
             onClick={() => testModel("gemini")}
             disabled={testing === "gemini"}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${testing === "gemini" ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>
-            {testing === "gemini" ? "测试中..." : "测试连通性"}
+            {testing === "gemini" ? t("options.testing") : t("options.testConnection")}
           </button>
           {testResult?.provider === "gemini" && (
             <span className={`ml-3 text-xs ${testResult.ok ? "text-emerald-600" : "text-red-600"}`}>
@@ -328,13 +344,13 @@ function OptionsIndex() {
     return (
       <div>
         <div className="flex items-center justify-between mb-1">
-          <label className="text-sm font-medium text-gray-700">模型</label>
+          <label className="text-sm font-medium text-gray-700">{t("options.model")}</label>
           <button
             onClick={() => fetchModelsFor(provider)}
             disabled={loadingModels === provider || !(provider === "openai" ? settings.openaiKey : settings.geminiKey)}
             className="px-3 py-1 text-xs rounded-lg text-white disabled:opacity-50 disabled:cursor-not-allowed"
             style={activeBtn}>
-            {loadingModels === provider ? "获取中..." : "获取模型列表"}
+            {loadingModels === provider ? t("options.fetchingModels") : t("options.fetchModels")}
           </button>
         </div>
 
@@ -352,11 +368,11 @@ function OptionsIndex() {
             onChange={(e) => onChange(e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
             {!hasModels ? (
-              <option value="">{value || "请先获取模型列表"}</option>
+              <option value="">{value || t("options.fetchModelListFirst")}</option>
             ) : (
               <>
-                <option value="">选择模型...</option>
-                {!currentInList && value && <option value={value}>{value} (当前)</option>}
+                <option value="">{t("options.selectModel")}</option>
+                {!currentInList && value && <option value={value}>{value} {t("options.currentSuffix")}</option>}
                 {models.map((m) => <option key={m} value={m}>{m}</option>)}
               </>
             )}
@@ -370,7 +386,7 @@ function OptionsIndex() {
             onChange={(e) => setCustomModelInput((prev) => ({ ...prev, [provider]: e.target.checked }))}
             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
-          <span className="text-xs text-gray-500">输入自定义模型名称</span>
+          <span className="text-xs text-gray-500">{t("options.customModelName")}</span>
         </label>
       </div>
     )
@@ -380,20 +396,28 @@ function OptionsIndex() {
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Prompt 模板编辑</h2>
-          <p className="text-sm text-gray-600 mb-6">自定义 AI 生成回复的提示词模板</p>
+          <h2 className="text-xl font-bold text-gray-800 mb-4">{t("options.promptTitle")}</h2>
+          <p className="text-sm text-gray-600 mb-6">{t("options.promptDesc")}</p>
         </div>
         <div>
           <div className="flex justify-between items-center mb-2">
-            <label className="text-sm font-medium text-gray-700">评价回复 Prompt</label>
-            <button onClick={() => setSettings({ ...settings, reviewPrompt: DEFAULT_REVIEW_PROMPT })} className="text-sm text-blue-600 hover:text-blue-700">恢复默认</button>
+            <label className="text-sm font-medium text-gray-700">{t("options.reviewPromptLabel")}</label>
+            <button onClick={() => setSettings({ ...settings, reviewPrompt: DEFAULT_REVIEW_PROMPT })} className="text-sm text-blue-600 hover:text-blue-700">{t("options.resetDefault")}</button>
           </div>
           <textarea value={settings.reviewPrompt || ""} onChange={(e) => setSettings({ ...settings, reviewPrompt: e.target.value })} rows={15} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm" />
-          <p className="mt-2 text-xs text-gray-500">{"可用变量：{{review_content}}, {{rating}}, {{product_name}}"}</p>
+          <p className="mt-2 text-xs text-gray-500">{t("options.availableVars")}</p>
         </div>
       </div>
     )
   }
 }
 
-export default OptionsIndex
+function OptionsPage() {
+  return (
+    <I18nProvider>
+      <OptionsIndex />
+    </I18nProvider>
+  )
+}
+
+export default OptionsPage

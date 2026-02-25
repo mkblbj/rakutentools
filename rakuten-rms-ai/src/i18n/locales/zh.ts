@@ -1,0 +1,112 @@
+import type { TranslationDict } from "./ja"
+
+const zh: TranslationDict = {
+  // === Common ===
+  "common.save": "保存设置",
+  "common.language": "语言",
+
+  // === Options page ===
+  "options.toolConfig": "工具配置",
+  "options.saveSuccess": "保存成功",
+  "options.saveFail": "保存失败",
+  "options.promptEditor": "Prompt 编辑器",
+  "options.defaultSuffix": "（默认）",
+  "options.config": "{provider} 配置",
+  "options.currentDefault": "当前默认",
+  "options.setDefault": "设为默认",
+  "options.tokenBudgetNoteLabel": "Token 预算说明",
+  "options.tokenBudgetNote":
+    "「可见输出 Token」只控制回复长度，思考 token 由独立参数控制，互不挤占。",
+  "options.apiKey": "API Key",
+  "options.apiKeyFromOpenai": "从 OpenAI Platform 获取",
+  "options.apiKeyFromGemini": "从 Google AI Studio 获取",
+  "options.baseUrl": "Base URL",
+  "options.fullRequestPath": "完整请求路径",
+  "options.sdkAutoAppendNote":
+    "SDK 自动追加 /v1beta 版本路径，此处只填域名即可",
+  "options.model": "模型",
+  "options.fetchModels": "获取模型列表",
+  "options.fetchingModels": "获取中...",
+  "options.fetchedModels": "获取到 {count} 个模型",
+  "options.fetchFail": "获取失败",
+  "options.fetchModelsFail": "获取模型失败",
+  "options.enterApiKeyFirst": "请先填写 {provider} API Key",
+  "options.visibleOutputTokens": "可见输出 Token",
+  "options.reasoningEffort": "思考深度 (reasoning_effort)",
+  "options.reasoningLow": "low（省 token）",
+  "options.reasoningMedium": "medium",
+  "options.reasoningHigh": "high（深度思考）",
+  "options.reasoningNote":
+    "思考 tokens 不占用输出预算。仅 o 系列模型有效，其他模型自动忽略。",
+  "options.testConnection": "测试连通性",
+  "options.testing": "测试中...",
+  "options.apiKeyMissing": "API Key 未填写",
+  "options.modelNotSelected": "模型未选择",
+  "options.testSuccess": '连通成功: "{reply}"',
+  "options.testFail": "测试失败",
+  "options.commFail": "通信失败",
+  "options.thinkingBudget": "思考预算 (thinkingBudget)",
+  "options.thinkingOff": "关闭",
+  "options.thinkingMin1024Label": "最低 1024（实际: {effectiveBudget}）",
+  "options.thinkingMinSlider": "0 → 最低 1024",
+  "options.thinkingOffSlider": "0（关闭）",
+  "options.proModelNote":
+    "Pro 模型强制开启思考且最低 1024。API 实际 maxOutputTokens = 可见({visible}) + 思考({thinking}) = {total}",
+  "options.thinkingOnNote":
+    "API 实际 maxOutputTokens = 可见({visible}) + 思考({thinking}) = {total}。Gemini 的 maxOutputTokens 包含思考 token。",
+  "options.thinkingOffNote":
+    "思考已关闭，评价回复推荐此设置。开启后思考 token 会计入 maxOutputTokens 总预算。",
+  "options.selectModel": "选择模型...",
+  "options.fetchModelListFirst": "请先获取模型列表",
+  "options.currentSuffix": "（当前）",
+  "options.customModelName": "输入自定义模型名称",
+  "options.promptTitle": "Prompt 模板编辑",
+  "options.promptDesc": "自定义 AI 生成回复的提示词模板",
+  "options.reviewPromptLabel": "评价回复 Prompt",
+  "options.resetDefault": "恢复默认",
+  "options.availableVars":
+    "可用变量: {{review_content}}, {{rating}}, {{product_name}}",
+
+  // === Popup ===
+  "popup.subtitle": "AI 工具",
+  "popup.pluginStatus": "插件状态",
+  "popup.ready": "就绪",
+  "popup.paused": "已暂停",
+  "popup.enabled": "启用中",
+  "popup.enabledStatus": "已启用",
+  "popup.pausedStatus": "已暂停",
+  "popup.notSet": "（未设置）",
+  "popup.aiProvider": "AI Provider",
+  "popup.currentModel": "当前模型",
+  "popup.fullSettings": "完整设置",
+
+  // === Content Scripts ===
+  "cs.aiReply": "UO AI 回复",
+  "cs.abort": "中断",
+  "cs.aborted": "已中断",
+  "cs.replyBoxNotFound": "回复框未找到",
+  "cs.reviewContainerNotFound": "评价容器未找到",
+  "cs.reviewDataFetchFail": "评价数据获取失败",
+  "cs.confirmExistingReply": "该评价已有回复，是否重新生成？",
+  "cs.generating": "AI 生成中...",
+  "cs.done": "生成完成",
+  "cs.failed": "生成失败",
+  "cs.commFail": "通信失败",
+  "cs.batchTitle": "UO AI 批量回复",
+  "cs.batchRunning": "批量生成中...",
+  "cs.batchProgress": "进度",
+  "cs.batchSuccess": "成功",
+  "cs.batchFail": "失败",
+  "cs.batchAbort": "中断",
+  "cs.batchCancel": "取消",
+  "cs.batchGenerate": "开始生成",
+  "cs.batchNoTarget":
+    "没有可处理的评价（全部已回复或无文本框）",
+  "cs.batchConfirm": "将为 {count} 条未回复评价生成 AI 回复。",
+  "cs.batchApiNote": "※ 将调用 API {count} 次。",
+  "cs.batchFabTitle": "UO AI 批量回复（仅未回复）",
+  "cs.batchFabLabel": "批量回复",
+  "cs.ok": "OK",
+}
+
+export default zh

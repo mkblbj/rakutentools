@@ -93,6 +93,7 @@ export const DEFAULT_REVIEW_PROMPT = `**【人物設定】**
 
 const DEFAULT_SETTINGS: UserSettings = {
   provider: "gemini",
+  language: "ja",
   openaiKey: "",
   openaiModel: "",
   openaiBaseUrl: "https://api.openai.com/v1",
@@ -109,6 +110,7 @@ const DEFAULT_SETTINGS: UserSettings = {
 
 const STORAGE_KEYS = [
   "provider",
+  "language",
   "openaiKey",
   "openaiModel",
   "openaiBaseUrl",

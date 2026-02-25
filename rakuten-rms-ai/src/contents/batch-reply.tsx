@@ -2,6 +2,7 @@ import type { PlasmoCSConfig } from "plasmo"
 import { useState, useRef, useCallback } from "react"
 import { extractAllReviews, type ReviewData } from "~utils/dom-selectors"
 import type { ReviewContext, StreamChunk } from "~types"
+import { useContentI18n } from "~i18n"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://review.rms.rakuten.co.jp/*"],
@@ -16,6 +17,10 @@ export const getStyle = () => {
     #plasmo-overlay { z-index: 99999; }
     @keyframes uo-spin {
       to { transform: rotate(360deg); }
+    }
+    @keyframes uo-fab-text-in {
+      from { opacity: 0; transform: translateX(-4px); }
+      to   { opacity: 1; transform: translateX(0); }
     }
   `
   return style
@@ -60,7 +65,7 @@ function generateForTextarea(
         resolve()
       } else if (msg.type === "error") {
         cleanup()
-        reject(new Error(msg.error || "生成失敗"))
+        reject(new Error(msg.error || "generation failed"))
       }
     })
 
@@ -75,10 +80,12 @@ function generateForTextarea(
 }
 
 function BatchReplyFAB() {
+  const { t } = useContentI18n()
   const [running, setRunning] = useState(false)
   const [task, setTask] = useState<TaskState | null>(null)
   const [confirmInfo, setConfirmInfo] = useState<{ count: number; onConfirm: () => void } | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [fabHovered, setFabHovered] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
   const startBatch = useCallback(async (targets: ReviewData[]) => {
@@ -127,6 +134,7 @@ function BatchReplyFAB() {
   }, [])
 
   const handleBatchReply = useCallback(() => {
+    setFabHovered(false)
     const allReviews = extractAllReviews()
     const targets = allReviews.filter((r) => {
       if (!r.replyTextarea) return false
@@ -137,12 +145,12 @@ function BatchReplyFAB() {
 
     if (targets.length === 0) {
       setConfirmInfo(null)
-      setNotice("対象の評価がありません（すべて回復済み、またはテキストエリアなし）")
+      setNotice(t("cs.batchNoTarget"))
       return
     }
 
     setConfirmInfo({ count: targets.length, onConfirm: () => startBatch(targets) })
-  }, [startBatch])
+  }, [startBatch, t])
 
   const handleAbort = useCallback(() => {
     abortRef.current?.abort()
@@ -167,7 +175,7 @@ function BatchReplyFAB() {
           padding: "16px 20px", minWidth: "240px",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-            <img src="https://pic.x-yue.top/i/2026/02/25/h7ipmv.png" alt="UO AI" style={{ width: "24px", height: "24px", borderRadius: "4px" }} />
+            <img src="https://pic.x-yue.top/i/2026/02/25/kr8o0q.png" alt="UO AI" style={{ width: "24px", height: "24px", borderRadius: "4px" }} />
             <span style={{ fontSize: "14px", fontWeight: 600, color: "#333" }}>UO AI</span>
           </div>
           <div style={{ fontSize: "13px", color: "#555", lineHeight: "1.6", marginBottom: "14px" }}>
@@ -180,7 +188,7 @@ function BatchReplyFAB() {
               color: "#374151", border: "1px solid #d1d5db", borderRadius: "6px",
               fontSize: "13px", fontWeight: 600, cursor: "pointer",
             }}>
-            OK
+            {t("cs.ok")}
           </button>
         </div>
       </div>
@@ -204,12 +212,12 @@ function BatchReplyFAB() {
               borderRadius: "50%", animation: "uo-spin 0.6s linear infinite",
             }} />
             <span style={{ fontSize: "14px", fontWeight: 600, color: "#333" }}>
-              一括生成中...
+              {t("cs.batchRunning")}
             </span>
           </div>
           <div style={{ fontSize: "13px", color: "#555", lineHeight: "1.6" }}>
-            進捗: {task.completed + task.failed} / {task.total}<br />
-            成功: {task.completed}　失敗: {task.failed}
+            {t("cs.batchProgress")}: {task.completed + task.failed} / {task.total}<br />
+            {t("cs.batchSuccess")}: {task.completed}{"\u3000"}{t("cs.batchFail")}: {task.failed}
           </div>
           <div style={{
             marginTop: "8px", height: "4px", borderRadius: "2px",
@@ -229,7 +237,7 @@ function BatchReplyFAB() {
               borderRadius: "6px", fontSize: "12px", fontWeight: 600,
               cursor: "pointer",
             }}>
-            中断する
+            {t("cs.batchAbort")}
           </button>
         </div>
       </div>
@@ -245,12 +253,12 @@ function BatchReplyFAB() {
           padding: "16px 20px", minWidth: "240px",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-            <img src="https://pic.x-yue.top/i/2026/02/25/h7ipmv.png" alt="UO AI" style={{ width: "24px", height: "24px", borderRadius: "4px" }} />
-            <span style={{ fontSize: "14px", fontWeight: 600, color: "#333" }}>UO AI 一括返信</span>
+            <img src="https://pic.x-yue.top/i/2026/02/25/kr8o0q.png" alt="UO AI" style={{ width: "24px", height: "24px", borderRadius: "4px" }} />
+            <span style={{ fontSize: "14px", fontWeight: 600, color: "#333" }}>{t("cs.batchTitle")}</span>
           </div>
           <div style={{ fontSize: "13px", color: "#555", lineHeight: "1.6", marginBottom: "14px" }}>
-            未回復 <strong>{confirmInfo.count}</strong> 件に AI 返信を生成します。<br />
-            ※ API を {confirmInfo.count} 回呼び出します。
+            {t("cs.batchConfirm", { count: confirmInfo.count })}<br />
+            {t("cs.batchApiNote", { count: confirmInfo.count })}
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
             <button
@@ -260,7 +268,7 @@ function BatchReplyFAB() {
                 color: "#374151", border: "1px solid #d1d5db", borderRadius: "6px",
                 fontSize: "13px", fontWeight: 600, cursor: "pointer",
               }}>
-              キャンセル
+              {t("cs.batchCancel")}
             </button>
             <button
               onClick={confirmInfo.onConfirm}
@@ -269,7 +277,7 @@ function BatchReplyFAB() {
                 color: "#fff", border: "none", borderRadius: "6px",
                 fontSize: "13px", fontWeight: 600, cursor: "pointer",
               }}>
-              生成する
+              {t("cs.batchGenerate")}
             </button>
           </div>
         </div>
@@ -281,23 +289,42 @@ function BatchReplyFAB() {
     <div style={fabStyle}>
       <button
         onClick={() => handleBatchReply()}
+        onMouseEnter={() => setFabHovered(true)}
+        onMouseLeave={() => setFabHovered(false)}
         style={{
-          width: "52px", height: "52px", borderRadius: "50%",
-          backgroundColor: "#fff", border: "none", cursor: "pointer",
-          boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
+          width: fabHovered ? "148px" : "52px",
+          height: "52px",
+          borderRadius: fabHovered ? "26px" : "50%",
+          backgroundColor: fabHovered ? "#1a1a1a" : "#fff",
+          border: fabHovered ? "none" : "1px solid rgba(0,0,0,0.06)",
+          cursor: "pointer",
+          boxShadow: fabHovered
+            ? "0 6px 24px rgba(0,0,0,0.25)"
+            : "0 2px 12px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          transition: "all 0.2s",
+          gap: "8px", padding: "0 6px",
+          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          overflow: "hidden", whiteSpace: "nowrap",
         }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = "scale(1.08)"
-          e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.2)"
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = "scale(1)"
-          e.currentTarget.style.boxShadow = "0 2px 10px rgba(0,0,0,0.15)"
-        }}
-        title="UO AI 一括返信（未回復のみ）">
-        <img src="https://pic.x-yue.top/i/2026/02/25/h7ipmv.png" alt="UO AI" style={{ width: "36px", height: "36px", borderRadius: "6px" }} />
+        title={fabHovered ? undefined : t("cs.batchFabTitle")}>
+        <img
+          src="https://pic.x-yue.top/i/2026/02/25/kr8o0q.png"
+          alt="UO AI"
+          style={{
+            width: "36px", height: "36px", borderRadius: "6px",
+            flexShrink: 0, transition: "transform 0.3s",
+            transform: fabHovered ? "scale(0.88)" : "scale(1)",
+          }}
+        />
+        {fabHovered && (
+          <span style={{
+            fontSize: "13px", fontWeight: 600, color: "#fff",
+            animation: "uo-fab-text-in 0.25s ease-out forwards",
+            paddingRight: "6px",
+          }}>
+            {t("cs.batchFabLabel")}
+          </span>
+        )}
       </button>
     </div>
   )

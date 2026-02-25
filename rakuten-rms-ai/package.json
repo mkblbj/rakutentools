@@ -1,8 +1,8 @@
 {
   "name": "rakutentools",
-  "displayName": "UO 自社 Rakutentools - AI ツール",
+  "displayName": "__MSG_extensionName__",
   "version": "0.0.1",
-  "description": "Rakuten RMS AI回复助手",
+  "description": "__MSG_extensionDescription__",
   "author": "UO",
   "scripts": {
     "dev": "plasmo dev",
@@ -39,6 +39,7 @@
     "typescript": "5.9.3"
   },
   "manifest": {
+    "default_locale": "ja",
     "permissions": [
       "storage",
       "activeTab",

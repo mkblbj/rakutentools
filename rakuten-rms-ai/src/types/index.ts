@@ -1,7 +1,10 @@
 export type ProviderType = "openai" | "gemini"
 
+export type Language = "ja" | "zh" | "en"
+
 export interface UserSettings {
   provider: ProviderType
+  language: Language
   // OpenAI
   openaiKey?: string
   openaiModel?: string

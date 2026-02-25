@@ -1,0 +1,10 @@
+{
+  "extensionName": {
+    "message": "UO Rakutentools - AI ツール",
+    "description": "Name of the extension."
+  },
+  "extensionDescription": {
+    "message": "Rakuten RMS AI 返信アシスタント",
+    "description": "Description of the extension."
+  }
+}
