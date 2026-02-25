@@ -13,14 +13,22 @@ chrome.runtime.onInstalled.addListener((details) => {
 
 const activeStreams = new Map<string, AbortController>()
 
+function createStreamId(prefix: string): string {
+  const randomPart = Math.random().toString(36).slice(2, 8)
+  return `${prefix}-${Date.now()}-${randomPart}`
+}
+
 function handleStreamPort(port: chrome.runtime.Port, getMessages: (request: any) => Array<{ role: string; content: string }> | null) {
+  const portStreamIds = new Set<string>()
+
   port.onMessage.addListener(async (request: any) => {
     const messages = getMessages(request)
     if (!messages) return
 
-    const streamId = `stream-${Date.now()}`
+    const streamId = createStreamId("stream")
     const abortController = new AbortController()
     activeStreams.set(streamId, abortController)
+    portStreamIds.add(streamId)
 
     port.postMessage({ type: "stream_id", streamId })
 
@@ -46,11 +54,17 @@ function handleStreamPort(port: chrome.runtime.Port, getMessages: (request: any)
       port.postMessage({ type: "error", error: errorMessage } as StreamChunk)
     } finally {
       activeStreams.delete(streamId)
+      portStreamIds.delete(streamId)
     }
   })
 
   port.onDisconnect.addListener(() => {
-    activeStreams.forEach((controller) => controller.abort())
+    for (const streamId of portStreamIds) {
+      const controller = activeStreams.get(streamId)
+      if (controller) controller.abort()
+      activeStreams.delete(streamId)
+    }
+    portStreamIds.clear()
   })
 }
 
@@ -116,12 +130,15 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 })
 
 function handleReviewStreamPort(port: chrome.runtime.Port) {
+  const portStreamIds = new Set<string>()
+
   port.onMessage.addListener(async (request: { action: string; context: ReviewContext }) => {
     if (request.action !== "start_review_stream") return
 
-    const streamId = `review-${Date.now()}`
+    const streamId = createStreamId("review")
     const abortController = new AbortController()
     activeStreams.set(streamId, abortController)
+    portStreamIds.add(streamId)
 
     port.postMessage({ type: "stream_id", streamId })
 
@@ -159,11 +176,17 @@ function handleReviewStreamPort(port: chrome.runtime.Port) {
       port.postMessage({ type: "error", error: errorMessage } as StreamChunk)
     } finally {
       activeStreams.delete(streamId)
+      portStreamIds.delete(streamId)
     }
   })
 
   port.onDisconnect.addListener(() => {
-    activeStreams.forEach((controller) => controller.abort())
+    for (const streamId of portStreamIds) {
+      const controller = activeStreams.get(streamId)
+      if (controller) controller.abort()
+      activeStreams.delete(streamId)
+    }
+    portStreamIds.clear()
   })
 }
 

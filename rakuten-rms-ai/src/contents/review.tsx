@@ -29,7 +29,13 @@ export const getStyle = () => {
   return style
 }
 
-const ReviewAIButton = () => {
+interface ReviewAIButtonProps {
+  anchor?: {
+    element?: Element | null
+  }
+}
+
+const ReviewAIButton = ({ anchor }: ReviewAIButtonProps) => {
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState<string>("")
   const portRef = useRef<chrome.runtime.Port | null>(null)
@@ -45,11 +51,8 @@ const ReviewAIButton = () => {
   }
 
   const handleGenerateReply = async () => {
-    const button = document.activeElement as HTMLElement
-    const container = button?.closest("td") || button?.closest("div")
-    const textarea = container?.querySelector<HTMLTextAreaElement>(
-      REVIEW_SELECTORS.REPLY_TEXTAREA
-    )
+    const textarea =
+      anchor?.element instanceof HTMLTextAreaElement ? anchor.element : null
 
     if (!textarea) {
       setStatus("回复框未找到")
@@ -58,22 +61,20 @@ const ReviewAIButton = () => {
     }
 
     let reviewContainer: Element | null = textarea
+    let detailDiv: Element | null = null
     for (let i = 0; i < 15; i++) {
       reviewContainer = reviewContainer?.parentElement || null
       if (!reviewContainer) break
-      const detailDiv = reviewContainer.querySelector(REVIEW_SELECTORS.DETAIL_CONTAINER)
-      if (detailDiv) break
+      const textareas = reviewContainer.querySelectorAll(REVIEW_SELECTORS.REPLY_TEXTAREA)
+      const details = reviewContainer.querySelectorAll(REVIEW_SELECTORS.DETAIL_CONTAINER)
+      if (textareas.length === 1 && details.length === 1 && textareas[0] === textarea) {
+        detailDiv = details[0]
+        break
+      }
     }
 
-    if (!reviewContainer) {
+    if (!reviewContainer || !detailDiv) {
       setStatus("評価容器未找到")
-      setTimeout(() => setStatus(""), 3000)
-      return
-    }
-
-    const detailDiv = reviewContainer.querySelector(REVIEW_SELECTORS.DETAIL_CONTAINER)
-    if (!detailDiv) {
-      setStatus("評価詳細未找到")
       setTimeout(() => setStatus(""), 3000)
       return
     }

@@ -43,11 +43,7 @@ function IndexPopup() {
   return (
     <div className="w-80 p-6 bg-white">
       <div className="flex items-center gap-3 mb-6">
-        <div
-          className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold"
-          style={{ backgroundColor: "#2478AE" }}>
-          UO
-        </div>
+        <img src="https://pic.x-yue.top/i/2026/02/25/kr8o0q.png" alt="UO" className="w-10 h-10 rounded-lg" />
         <div>
           <h1 className="text-xl font-bold text-gray-800">UO Rakutentools</h1>
           <p className="text-sm text-gray-500">AI ツール</p>

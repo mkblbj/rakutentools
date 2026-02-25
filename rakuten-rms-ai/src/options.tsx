@@ -117,12 +117,9 @@ function OptionsIndex() {
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white border-b">
         <div className="max-w-6xl mx-auto px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg flex items-center justify-center text-white text-lg font-bold" style={activeBtn}>UO</div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">UO Rakutentools 设置</h1>
-              <p className="text-sm text-gray-500">AI ツール配置</p>
-            </div>
+          <div className="flex items-center justify-between">
+            <img src="https://pic.x-yue.top/i/2026/02/25/li6n6d.jpg" alt="UO Rakutentools" className="h-14 rounded-lg" />
+            <p className="text-sm text-gray-400">ツール配置</p>
           </div>
         </div>
       </div>
