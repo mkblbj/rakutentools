@@ -35,7 +35,12 @@ const ja = {
   "options.reasoningMedium": "medium",
   "options.reasoningHigh": "high（深い思考）",
   "options.reasoningNote":
-    "思考トークンは出力予算を占有しません。o シリーズモデルのみ有効、他のモデルでは自動的に無視されます。",
+    "思考トークンは出力予算を占有しません。推理モデルのみ有効、他のモデルでは自動的に無視されます。",
+  "options.apiMode": "API モード",
+  "options.apiModeResponses": "Responses API（推奨）",
+  "options.apiModeChat": "Chat Completions（互換）",
+  "options.apiModeNote":
+    "Responses API は OpenAI / xAI 推奨の新インターフェースで、推理モデルをよりよくサポートします。Responses API に対応しないサードパーティサービスの場合は Chat Completions を選択してください。",
   "options.testConnection": "接続テスト",
   "options.testing": "テスト中...",
   "options.apiKeyMissing": "API Key が未入力です",

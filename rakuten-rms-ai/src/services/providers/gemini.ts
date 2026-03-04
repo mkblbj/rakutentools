@@ -69,15 +69,23 @@ export class GeminiProvider implements LLMProvider {
     signal?: AbortSignal
   ): AsyncGenerator<StreamChunk> {
     this.ensureModel()
-    const contents = messages.map((m) => ({
+    const systemMsg = messages.find((m) => m.role === "system")
+    const nonSystemMsgs = messages.filter((m) => m.role !== "system")
+
+    const contents = nonSystemMsgs.map((m) => ({
       role: m.role === "assistant" ? "model" : "user",
       parts: [{ text: m.content }],
     }))
 
+    const config = this.buildConfig()
+    if (systemMsg) {
+      config.systemInstruction = systemMsg.content
+    }
+
     const response = await this.genAI.models.generateContentStream({
       model: this.model,
       contents,
-      config: this.buildConfig(),
+      config,
     })
 
     for await (const chunk of response) {

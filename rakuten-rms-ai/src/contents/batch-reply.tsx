@@ -3,6 +3,7 @@ import { useState, useRef, useCallback } from "react"
 import { extractAllReviews, type ReviewData } from "~utils/dom-selectors"
 import type { ReviewContext, StreamChunk } from "~types"
 import { useContentI18n } from "~i18n"
+import { stripTrailingMeta } from "~utils/text-cleanup"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://review.rms.rakuten.co.jp/*"],
@@ -60,6 +61,8 @@ function generateForTextarea(
         textarea.value += msg.content
         textarea.dispatchEvent(new Event("input", { bubbles: true }))
       } else if (msg.type === "done") {
+        textarea.value = stripTrailingMeta(textarea.value).trim()
+        textarea.dispatchEvent(new Event("input", { bubbles: true }))
         textarea.dispatchEvent(new Event("change", { bubbles: true }))
         cleanup()
         resolve()

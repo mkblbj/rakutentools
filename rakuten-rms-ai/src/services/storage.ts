@@ -89,7 +89,9 @@ export const DEFAULT_REVIEW_PROMPT = `**【人物設定】**
 ---
 
 ## 【出力形式】
-- 上記ルールに従い、**返信文のみ**を出力する（説明・前置きは書かない）。`
+- 上記ルールに従い、**返信文のみ**を出力する（説明・前置き・文字数カウント・メモは一切書かない）。
+- 返信文は**400〜600文字**に収める。短い場合は言い換え・補足・共感の深掘りで自然に増やす。
+- 「（文字数：○○）」「※○○文字」などの文字数表記は絶対に出力しない。`
 
 const DEFAULT_SETTINGS: UserSettings = {
   provider: "gemini",
@@ -99,6 +101,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   openaiBaseUrl: "https://api.openai.com/v1",
   openaiMaxOutputTokens: 2048,
   openaiReasoningEffort: "low",
+  openaiApiMode: "responses",
   geminiKey: "",
   geminiModel: "",
   geminiBaseUrl: "https://generativelanguage.googleapis.com",
@@ -116,6 +119,7 @@ const STORAGE_KEYS = [
   "openaiBaseUrl",
   "openaiMaxOutputTokens",
   "openaiReasoningEffort",
+  "openaiApiMode",
   "geminiKey",
   "geminiModel",
   "geminiBaseUrl",

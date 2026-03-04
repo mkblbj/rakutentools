@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { stripTrailingMeta } from "~utils/text-cleanup"
 import "../style.css"
 
 function TestPage() {
@@ -47,7 +48,7 @@ function TestPage() {
           const elapsed = Date.now() - startTime
 
           if (response.success) {
-            setGeneratedReply(response.data)
+            setGeneratedReply(stripTrailingMeta(response.data))
             addLog(`✅ 生成成功 (${elapsed}ms)`)
           } else {
             setError(response.error || "生成に失敗しました")

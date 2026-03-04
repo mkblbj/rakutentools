@@ -1,6 +1,7 @@
 import type { GenerateRequest, GenerateResponse, ReviewContext, StartChatStreamRequest, StreamChunk } from "~types"
 import { StorageService } from "~services/storage"
 import { ModelFactory } from "~services/providers"
+import { stripTrailingMeta } from "~utils/text-cleanup"
 
 console.log("UO Rakutentools Background Service Worker started")
 
@@ -157,7 +158,7 @@ function handleReviewStreamPort(port: chrome.runtime.Port) {
 
       const provider = await ModelFactory.createCurrentProvider()
       const stream = provider.generateReplyStream(
-        [{ role: "user", content: prompt }],
+        buildReviewMessages(prompt),
         abortController.signal
       )
 
@@ -207,7 +208,7 @@ async function handleGenerateReply(request: GenerateRequest): Promise<GenerateRe
     const provider = await ModelFactory.createCurrentProvider()
     const reply = await provider.generateReply(prompt)
 
-    return { success: true, data: reply }
+    return { success: true, data: stripTrailingMeta(reply) }
   } catch (error) {
     return {
       success: false,
@@ -252,6 +253,16 @@ function buildPrompt(template: string, context: ReviewContext): string {
     .replace(/\{\{rating\}\}/g, context.rating || "5")
     .replace(/\{\{product_name\}\}/g, context.productName || "")
     .replace(/\{\{buyer_name\}\}/g, context.buyerName || "")
+}
+
+const REVIEW_USER_INSTRUCTION =
+  "上記のルールに厳密に従い、400〜600文字の返信文のみを出力してください。文字数カウント・メモ・補足説明は一切付けないでください。"
+
+function buildReviewMessages(prompt: string): Array<{ role: string; content: string }> {
+  return [
+    { role: "system", content: prompt },
+    { role: "user", content: REVIEW_USER_INSTRUCTION },
+  ]
 }
 
 export {}

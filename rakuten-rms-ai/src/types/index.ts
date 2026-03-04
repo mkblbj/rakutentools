@@ -11,6 +11,7 @@ export interface UserSettings {
   openaiBaseUrl?: string
   openaiMaxOutputTokens?: number
   openaiReasoningEffort?: "low" | "medium" | "high"
+  openaiApiMode?: "responses" | "chat"
   // Gemini
   geminiKey?: string
   geminiModel?: string
@@ -55,6 +56,7 @@ export interface ProviderConfig {
   reasoningEffort?: "low" | "medium" | "high"
   thinkingBudget?: number
   temperature?: number
+  apiMode?: "responses" | "chat"
 }
 
 export interface LLMProvider {

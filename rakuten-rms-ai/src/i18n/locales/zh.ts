@@ -37,7 +37,12 @@ const zh: TranslationDict = {
   "options.reasoningMedium": "medium",
   "options.reasoningHigh": "high（深度思考）",
   "options.reasoningNote":
-    "思考 tokens 不占用输出预算。仅 o 系列模型有效，其他模型自动忽略。",
+    "思考 tokens 不占用输出预算。仅推理模型有效，其他模型自动忽略。",
+  "options.apiMode": "API 模式",
+  "options.apiModeResponses": "Responses API（推荐）",
+  "options.apiModeChat": "Chat Completions（兼容）",
+  "options.apiModeNote":
+    "Responses API 是 OpenAI / xAI 推荐的新接口，更好地支持推理模型。如使用不兼容 Responses API 的第三方服务，请选择 Chat Completions。",
   "options.testConnection": "测试连通性",
   "options.testing": "测试中...",
   "options.apiKeyMissing": "API Key 未填写",

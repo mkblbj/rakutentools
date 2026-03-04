@@ -15,6 +15,7 @@ function OptionsIndex() {
     openaiBaseUrl: "https://api.openai.com/v1",
     openaiMaxOutputTokens: 2048,
     openaiReasoningEffort: "low",
+    openaiApiMode: "responses",
     geminiKey: "",
     geminiModel: "",
     geminiBaseUrl: "https://generativelanguage.googleapis.com",
@@ -221,7 +222,16 @@ function OptionsIndex() {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">{t("options.baseUrl")}</label>
           <input type="text" value={settings.openaiBaseUrl || ""} onChange={(e) => setSettings({ ...settings, openaiBaseUrl: e.target.value })} placeholder="https://api.openai.com/v1" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-          <p className="mt-1 text-xs text-gray-500">{t("options.fullRequestPath")}: <code className="bg-gray-100 px-1 rounded">{settings.openaiBaseUrl || "https://api.openai.com/v1"}/chat/completions</code></p>
+          <p className="mt-1 text-xs text-gray-500">{t("options.fullRequestPath")}: <code className="bg-gray-100 px-1 rounded">{settings.openaiBaseUrl || "https://api.openai.com/v1"}/{(settings.openaiApiMode || "responses") === "responses" ? "responses" : "chat/completions"}</code></p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t("options.apiMode")}</label>
+          <select value={settings.openaiApiMode || "responses"} onChange={(e) => setSettings({ ...settings, openaiApiMode: e.target.value as "responses" | "chat" })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <option value="responses">{t("options.apiModeResponses")}</option>
+            <option value="chat">{t("options.apiModeChat")}</option>
+          </select>
+          <p className="mt-1 text-xs text-gray-500">{t("options.apiModeNote")}</p>
         </div>
 
         {renderModelSelector("openai", openaiModels, settings.openaiModel || "", (v) => setSettings({ ...settings, openaiModel: v }))}

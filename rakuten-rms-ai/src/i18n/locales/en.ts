@@ -37,7 +37,12 @@ const en: TranslationDict = {
   "options.reasoningMedium": "medium",
   "options.reasoningHigh": "high (deep thinking)",
   "options.reasoningNote":
-    "Thinking tokens don't consume the output budget. Only effective for o-series models; others will automatically ignore this.",
+    "Thinking tokens don't consume the output budget. Only effective for reasoning models; others will automatically ignore this.",
+  "options.apiMode": "API Mode",
+  "options.apiModeResponses": "Responses API (Recommended)",
+  "options.apiModeChat": "Chat Completions (Compatible)",
+  "options.apiModeNote":
+    "Responses API is the recommended interface by OpenAI / xAI with better support for reasoning models. Choose Chat Completions if using a third-party service that doesn't support Responses API.",
   "options.testConnection": "Test Connection",
   "options.testing": "Testing...",
   "options.apiKeyMissing": "API Key is missing",
