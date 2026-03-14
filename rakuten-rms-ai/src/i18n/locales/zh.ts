@@ -70,7 +70,12 @@ const zh: TranslationDict = {
   "options.reviewPromptLabel": "评价回复 Prompt",
   "options.resetDefault": "恢复默认",
   "options.availableVars":
-    "可用变量: {{review_content}}, {{rating}}, {{product_name}}",
+    "可用变量: {{review_content}}, {{rating}}, {{product_name}}, {{current_date_jst}}, {{season_label}}, {{holiday_label}}, {{seasonal_greeting}}",
+  "options.seasonalReplyLabel": "季节问候（自动附加）",
+  "options.seasonalReplyDesc":
+    "根据日本时间自动判断祝日、季节、时令信息并反映到回复中（仅生成草稿，不会自动发送）。",
+  "options.seasonalReplyEnabled": "已启用",
+  "options.seasonalReplyDisabled": "已关闭",
 
   // === Popup ===
   "popup.subtitle": "AI 工具",

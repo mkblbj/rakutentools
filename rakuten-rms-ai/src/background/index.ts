@@ -1,7 +1,8 @@
 import type { GenerateRequest, GenerateResponse, ReviewContext, StartChatStreamRequest, StreamChunk } from "~types"
-import { StorageService } from "~services/storage"
+import { StorageService, DEFAULT_REVIEW_PROMPT } from "~services/storage"
 import { ModelFactory } from "~services/providers"
 import { stripTrailingMeta } from "~utils/text-cleanup"
+import { getSeasonalContext, type SeasonalContext } from "~utils/seasonal"
 
 console.log("評価返信AI Background Service Worker started")
 
@@ -144,17 +145,17 @@ function handleReviewStreamPort(port: chrome.runtime.Port) {
     port.postMessage({ type: "stream_id", streamId })
 
     try {
-      const isEnabled = await StorageService.isEnabled()
-      if (!isEnabled) throw new Error("插件已暂停")
+      const settings = await StorageService.getSettings()
+      if (!settings.enabled) throw new Error("插件已暂停")
 
-      const providerType = await StorageService.getProvider()
-      const hasApiKey = await StorageService.validateApiKey(providerType)
+      const hasApiKey = await StorageService.validateApiKey(settings.provider)
       if (!hasApiKey) {
-        throw new Error(`请先配置 ${providerType === "openai" ? "OpenAI" : "Gemini"} API Key`)
+        throw new Error(`请先配置 ${settings.provider === "openai" ? "OpenAI" : "Gemini"} API Key`)
       }
 
-      const promptTemplate = await StorageService.getPrompt()
-      const prompt = buildPrompt(promptTemplate, request.context)
+      const promptTemplate = settings.reviewPrompt || DEFAULT_REVIEW_PROMPT
+      const seasonal = settings.seasonalReplyEnabled ? getSeasonalContext() : undefined
+      const prompt = buildPrompt(promptTemplate, request.context, seasonal)
 
       const provider = await ModelFactory.createCurrentProvider()
       const stream = provider.generateReplyStream(
@@ -193,17 +194,17 @@ function handleReviewStreamPort(port: chrome.runtime.Port) {
 
 async function handleGenerateReply(request: GenerateRequest): Promise<GenerateResponse> {
   try {
-    const isEnabled = await StorageService.isEnabled()
-    if (!isEnabled) throw new Error("插件已暂停")
+    const settings = await StorageService.getSettings()
+    if (!settings.enabled) throw new Error("插件已暂停")
 
-    const providerType = await StorageService.getProvider()
-    const hasApiKey = await StorageService.validateApiKey(providerType)
+    const hasApiKey = await StorageService.validateApiKey(settings.provider)
     if (!hasApiKey) {
-      throw new Error(`请先配置 ${providerType === "openai" ? "OpenAI" : "Gemini"} API Key`)
+      throw new Error(`请先配置 ${settings.provider === "openai" ? "OpenAI" : "Gemini"} API Key`)
     }
 
-    const promptTemplate = await StorageService.getPrompt()
-    const prompt = buildPrompt(promptTemplate, request.context)
+    const promptTemplate = settings.reviewPrompt || DEFAULT_REVIEW_PROMPT
+    const seasonal = settings.seasonalReplyEnabled ? getSeasonalContext() : undefined
+    const prompt = buildPrompt(promptTemplate, request.context, seasonal)
 
     const provider = await ModelFactory.createCurrentProvider()
     const reply = await provider.generateReply(prompt)
@@ -247,12 +248,35 @@ async function handleFetchModels(providerType?: string): Promise<{ success: bool
   }
 }
 
-function buildPrompt(template: string, context: ReviewContext): string {
-  return template
+function buildPrompt(template: string, context: ReviewContext, seasonal?: SeasonalContext): string {
+  const hasSeasonalVars = /\{\{(current_date_jst|season_label|holiday_label|seasonal_greeting)\}\}/.test(template)
+
+  let result = template
     .replace(/\{\{review_content\}\}/g, context.reviewContent || "")
     .replace(/\{\{rating\}\}/g, context.rating || "5")
     .replace(/\{\{product_name\}\}/g, context.productName || "")
     .replace(/\{\{buyer_name\}\}/g, context.buyerName || "")
+
+  if (seasonal) {
+    result = result
+      .replace(/\{\{current_date_jst\}\}/g, seasonal.currentDateJst)
+      .replace(/\{\{season_label\}\}/g, seasonal.seasonLabel)
+      .replace(/\{\{holiday_label\}\}/g, seasonal.holidayLabel || "なし")
+      .replace(/\{\{seasonal_greeting\}\}/g, seasonal.seasonalGreeting)
+
+    if (!hasSeasonalVars) {
+      const holidayInfo = seasonal.holidayLabel || "なし"
+      result += `\n\n---\n**【季節情報】** 返信日: ${seasonal.currentDateJst}（${seasonal.seasonLabel}）/ 祝日・行事: ${holidayInfo}\n感謝モードの場合のみ、冒頭か結びに季節の一言を1文だけ自然に添えてください: 「${seasonal.seasonalGreeting}」（参考・アレンジ可）。謝罪モードでは不要。`
+    }
+  } else {
+    result = result
+      .replace(/\{\{current_date_jst\}\}/g, "")
+      .replace(/\{\{season_label\}\}/g, "")
+      .replace(/\{\{holiday_label\}\}/g, "")
+      .replace(/\{\{seasonal_greeting\}\}/g, "")
+  }
+
+  return result
 }
 
 const REVIEW_USER_INSTRUCTION =

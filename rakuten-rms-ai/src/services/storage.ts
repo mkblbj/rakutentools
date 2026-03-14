@@ -12,7 +12,11 @@ export const DEFAULT_REVIEW_PROMPT = `**【人物設定】**
 ## 【入力情報】
 - レビュー内容: {{review_content}}  
 - 評価: {{rating}}（※返信文に星の数は書かない）  
-- 商品名: {{product_name}}
+- 商品名: {{product_name}}  
+- 返信日（日本時間）: {{current_date_jst}}  
+- 季節: {{season_label}}  
+- 祝日・行事: {{holiday_label}}  
+- 季節の一言（参考）: {{seasonal_greeting}}
 
 ---
 
@@ -38,6 +42,12 @@ export const DEFAULT_REVIEW_PROMPT = `**【人物設定】**
 ### 5) 1通につき目的はひとつ
 - **謝罪モード**：謝罪を軸にまとめる（感謝表現は入れない）。  
 - **感謝モード**：感謝を軸にまとめる（過度な謝罪はしない）。
+
+### 6) 季節感の演出（「季節の一言（参考）」が空でない場合のみ適用）
+- **感謝モード**のときのみ、冒頭か結びに季節・時候の一言を**1文だけ**自然に添える。  
+- **謝罪モード**では季節表現を入れない（お詫びに集中する）。  
+- 「季節の一言（参考）」はヒントであり、そのまま使わず文脈に合わせて自然にアレンジする。  
+- 手紙調の堅い時候の挨拶は避け、会話として自然な表現にする。
 
 ---
 
@@ -108,6 +118,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   geminiMaxOutputTokens: 2048,
   geminiThinkingBudget: 0,
   enabled: true,
+  seasonalReplyEnabled: true,
   reviewPrompt: DEFAULT_REVIEW_PROMPT,
 }
 
@@ -127,6 +138,7 @@ const STORAGE_KEYS = [
   "geminiThinkingBudget",
   "reviewPrompt",
   "enabled",
+  "seasonalReplyEnabled",
 ] as const
 
 export class StorageService {

@@ -21,6 +21,7 @@ export interface UserSettings {
   // Common
   reviewPrompt?: string
   enabled: boolean
+  seasonalReplyEnabled: boolean
 }
 
 export interface ReviewContext {

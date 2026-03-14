@@ -70,7 +70,12 @@ const en: TranslationDict = {
   "options.reviewPromptLabel": "Review Reply Prompt",
   "options.resetDefault": "Reset to Default",
   "options.availableVars":
-    "Available variables: {{review_content}}, {{rating}}, {{product_name}}",
+    "Available variables: {{review_content}}, {{rating}}, {{product_name}}, {{current_date_jst}}, {{season_label}}, {{holiday_label}}, {{seasonal_greeting}}",
+  "options.seasonalReplyLabel": "Seasonal Greetings (Auto)",
+  "options.seasonalReplyDesc":
+    "Automatically adds holiday, season, and occasion context to replies based on Japan Standard Time (draft only, never auto-submits).",
+  "options.seasonalReplyEnabled": "Enabled",
+  "options.seasonalReplyDisabled": "Disabled",
 
   // === Popup ===
   "popup.subtitle": "AI Tools",

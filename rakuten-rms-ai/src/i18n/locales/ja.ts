@@ -68,7 +68,12 @@ const ja = {
   "options.reviewPromptLabel": "レビュー返信 Prompt",
   "options.resetDefault": "デフォルトに戻す",
   "options.availableVars":
-    "使用可能な変数: {{review_content}}, {{rating}}, {{product_name}}",
+    "使用可能な変数: {{review_content}}, {{rating}}, {{product_name}}, {{current_date_jst}}, {{season_label}}, {{holiday_label}}, {{seasonal_greeting}}",
+  "options.seasonalReplyLabel": "季節の挨拶（自動付与）",
+  "options.seasonalReplyDesc":
+    "日本時間に基づき、祝日・季節・時候の情報を自動で返信に反映します（草稿のみ生成、自動送信はしません）。",
+  "options.seasonalReplyEnabled": "有効",
+  "options.seasonalReplyDisabled": "無効",
 
   // === Popup ===
   "popup.subtitle": "AI ツール",

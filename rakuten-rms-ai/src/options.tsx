@@ -23,6 +23,7 @@ function OptionsIndex() {
     geminiThinkingBudget: 0,
     reviewPrompt: DEFAULT_REVIEW_PROMPT,
     enabled: true,
+    seasonalReplyEnabled: true,
   })
   const [saveStatus, setSaveStatus] = useState("")
   const [openaiModels, setOpenaiModels] = useState<string[]>([])
@@ -409,6 +410,24 @@ function OptionsIndex() {
           <h2 className="text-xl font-bold text-gray-800 mb-4">{t("options.promptTitle")}</h2>
           <p className="text-sm text-gray-600 mb-6">{t("options.promptDesc")}</p>
         </div>
+
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-800">{t("options.seasonalReplyLabel")}</p>
+              <p className="text-xs text-gray-500 mt-1">{t("options.seasonalReplyDesc")}</p>
+            </div>
+            <button
+              onClick={() => setSettings({ ...settings, seasonalReplyEnabled: !settings.seasonalReplyEnabled })}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${settings.seasonalReplyEnabled ? "bg-amber-500" : "bg-gray-300"}`}>
+              <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${settings.seasonalReplyEnabled ? "translate-x-5" : "translate-x-0"}`} />
+            </button>
+          </div>
+          <p className="mt-2 text-xs font-medium" style={{ color: settings.seasonalReplyEnabled ? "#b45309" : "#6b7280" }}>
+            {settings.seasonalReplyEnabled ? t("options.seasonalReplyEnabled") : t("options.seasonalReplyDisabled")}
+          </p>
+        </div>
+
         <div>
           <div className="flex justify-between items-center mb-2">
             <label className="text-sm font-medium text-gray-700">{t("options.reviewPromptLabel")}</label>
