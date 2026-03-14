@@ -3,6 +3,6 @@ RakuRipwin1.2.7
 rms-auto-old
 .cursor
 .DS_Store
-._.DS_Store
+._*
 D:
 *.csv
