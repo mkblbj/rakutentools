@@ -176,50 +176,14 @@ const ReviewAIButton = ({ anchor }: ReviewAIButtonProps) => {
       }}>
       <button
         onClick={loading ? handleAbort : handleGenerateReply}
-        style={{
-          padding: "6px 12px",
-          backgroundColor: loading ? "#DC2626" : "#2478AE",
-          color: "white",
-          border: "none",
-          borderRadius: "4px",
-          fontSize: "13px",
-          fontWeight: "600",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          gap: "6px",
-          transition: "background-color 0.2s",
-        }}
-        onMouseEnter={(e) => {
-          if (!loading) {
-            e.currentTarget.style.backgroundColor = "#1e6292"
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!loading) {
-            e.currentTarget.style.backgroundColor = "#2478AE"
-          }
-        }}>
+        className={`uo-glow-btn${loading ? " uo-glow-btn--abort" : ""}`}>
         {loading ? (
           <>
-            <span
-              style={{
-                display: "inline-block",
-                width: "12px",
-                height: "12px",
-                border: "2px solid white",
-                borderTopColor: "transparent",
-                borderRadius: "50%",
-                animation: "spin 0.6s linear infinite",
-              }}
-            />
+            <span className="uo-glow-spinner" />
             {t("cs.abort")}
           </>
         ) : (
-          <>
-            <span style={{ fontSize: "14px" }}>🤖</span>
-            {t("cs.aiReply")}
-          </>
+          t("cs.aiReply")
         )}
       </button>
       {status && (
@@ -236,6 +200,68 @@ const ReviewAIButton = ({ anchor }: ReviewAIButtonProps) => {
         {`
           @keyframes spin {
             to { transform: rotate(360deg); }
+          }
+          .uo-glow-btn {
+            --glow-color: rgb(120, 190, 255);
+            --glow-spread-color: rgba(80, 160, 255, 0.65);
+            --btn-color: #185f9f;
+            border: 0.15em solid var(--glow-color);
+            padding: 0.45em 1.25em;
+            color: var(--glow-color);
+            font-size: 13px;
+            font-weight: 600;
+            background-color: var(--btn-color);
+            border-radius: 0.6em;
+            outline: none;
+            box-shadow: 0 0 0.6em 0.15em var(--glow-color),
+              0 0 2em 0.5em var(--glow-spread-color),
+              inset 0 0 0.4em 0.15em var(--glow-color);
+            text-shadow: 0 0 0.5em var(--glow-color);
+            position: relative;
+            transition: all 0.3s;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+          }
+          .uo-glow-btn::after {
+            pointer-events: none;
+            content: "";
+            position: absolute;
+            top: 120%;
+            left: 0;
+            height: 100%;
+            width: 100%;
+            background-color: var(--glow-spread-color);
+            filter: blur(1.2em);
+            opacity: 0.4;
+            transform: perspective(1.5em) rotateX(35deg) scale(1, 0.6);
+          }
+          .uo-glow-btn:hover {
+            color: var(--btn-color);
+            background-color: var(--glow-color);
+            box-shadow: 0 0 0.6em 0.15em var(--glow-color),
+              0 0 2.5em 1em var(--glow-spread-color),
+              inset 0 0 0.4em 0.15em var(--glow-color);
+          }
+          .uo-glow-btn:active {
+            box-shadow: 0 0 0.4em 0.15em var(--glow-color),
+              0 0 1.5em 1em var(--glow-spread-color),
+              inset 0 0 0.3em 0.15em var(--glow-color);
+          }
+          .uo-glow-btn--abort {
+            --glow-color: rgb(255, 150, 150);
+            --glow-spread-color: rgba(255, 100, 100, 0.5);
+            --btn-color: rgb(150, 40, 40);
+          }
+          .uo-glow-spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid currentColor;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
           }
         `}
       </style>

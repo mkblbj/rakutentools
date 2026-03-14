@@ -3,7 +3,7 @@ import { StorageService } from "~services/storage"
 import { ModelFactory } from "~services/providers"
 import { stripTrailingMeta } from "~utils/text-cleanup"
 
-console.log("UO Rakutentools Background Service Worker started")
+console.log("評価返信AI Background Service Worker started")
 
 chrome.runtime.onInstalled.addListener((details) => {
   console.log("Extension installed:", details.reason)

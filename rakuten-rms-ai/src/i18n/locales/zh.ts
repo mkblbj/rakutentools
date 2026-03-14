@@ -86,7 +86,7 @@ const zh: TranslationDict = {
   "popup.fullSettings": "完整设置",
 
   // === Content Scripts ===
-  "cs.aiReply": "UO AI 回复",
+  "cs.aiReply": "評価返信AI",
   "cs.abort": "中断",
   "cs.aborted": "已中断",
   "cs.replyBoxNotFound": "回复框未找到",
@@ -97,7 +97,7 @@ const zh: TranslationDict = {
   "cs.done": "生成完成",
   "cs.failed": "生成失败",
   "cs.commFail": "通信失败",
-  "cs.batchTitle": "UO AI 批量回复",
+  "cs.batchTitle": "評価返信AI 一括返信",
   "cs.batchRunning": "批量生成中...",
   "cs.batchProgress": "进度",
   "cs.batchSuccess": "成功",
@@ -109,7 +109,7 @@ const zh: TranslationDict = {
     "没有可处理的评价（全部已回复或无文本框）",
   "cs.batchConfirm": "将为 {count} 条未回复评价生成 AI 回复。",
   "cs.batchApiNote": "※ 将调用 API {count} 次。",
-  "cs.batchFabTitle": "UO AI 批量回复（仅未回复）",
+  "cs.batchFabTitle": "評価返信AI 一括返信（未返信のみ）",
   "cs.batchFabLabel": "批量回复",
   "cs.ok": "OK",
 }

@@ -118,7 +118,7 @@ function TestPage() {
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            UO Rakutentools - AI返信テスト
+            評価返信AI - テスト
           </h1>
           <p className="text-sm text-gray-600">
             レビュー返信のAI生成をテストします

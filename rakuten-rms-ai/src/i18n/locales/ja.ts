@@ -84,7 +84,7 @@ const ja = {
   "popup.fullSettings": "詳細設定",
 
   // === Content Scripts ===
-  "cs.aiReply": "UO AI 返信",
+  "cs.aiReply": "評価返信AI",
   "cs.abort": "中断",
   "cs.aborted": "中断しました",
   "cs.replyBoxNotFound": "返信ボックスが見つかりません",
@@ -96,7 +96,7 @@ const ja = {
   "cs.done": "生成完了",
   "cs.failed": "生成失敗",
   "cs.commFail": "通信失敗",
-  "cs.batchTitle": "UO AI 一括返信",
+  "cs.batchTitle": "評価返信AI 一括返信",
   "cs.batchRunning": "一括生成中...",
   "cs.batchProgress": "進捗",
   "cs.batchSuccess": "成功",
@@ -108,7 +108,7 @@ const ja = {
     "対象のレビューがありません（すべて返信済み、またはテキストエリアなし）",
   "cs.batchConfirm": "未返信 {count} 件に AI 返信を生成します。",
   "cs.batchApiNote": "※ API を {count} 回呼び出します。",
-  "cs.batchFabTitle": "UO AI 一括返信（未返信のみ）",
+  "cs.batchFabTitle": "評価返信AI 一括返信（未返信のみ）",
   "cs.batchFabLabel": "一括返信",
   "cs.ok": "OK",
 } as const

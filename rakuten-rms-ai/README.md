@@ -1,4 +1,4 @@
-# UO 自社 Rakutentools - AI ツール
+# 評価返信AI
 
 基于 Plasmo 框架开发的浏览器扩展，支持 Chrome 和 Firefox。
 

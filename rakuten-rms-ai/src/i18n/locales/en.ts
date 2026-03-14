@@ -86,7 +86,7 @@ const en: TranslationDict = {
   "popup.fullSettings": "Full Settings",
 
   // === Content Scripts ===
-  "cs.aiReply": "UO AI Reply",
+  "cs.aiReply": "評価返信AI",
   "cs.abort": "Abort",
   "cs.aborted": "Aborted",
   "cs.replyBoxNotFound": "Reply box not found",
@@ -98,7 +98,7 @@ const en: TranslationDict = {
   "cs.done": "Generation complete",
   "cs.failed": "Generation failed",
   "cs.commFail": "Communication failed",
-  "cs.batchTitle": "UO AI Batch Reply",
+  "cs.batchTitle": "評価返信AI Batch Reply",
   "cs.batchRunning": "Batch generating...",
   "cs.batchProgress": "Progress",
   "cs.batchSuccess": "Success",
@@ -110,7 +110,7 @@ const en: TranslationDict = {
     "No reviews to process (all replied or no text area)",
   "cs.batchConfirm": "Generate AI replies for {count} unreplied reviews.",
   "cs.batchApiNote": "* API will be called {count} times.",
-  "cs.batchFabTitle": "UO AI Batch Reply (unreplied only)",
+  "cs.batchFabTitle": "評価返信AI Batch Reply (unreplied only)",
   "cs.batchFabLabel": "Batch Reply",
   "cs.ok": "OK",
 }

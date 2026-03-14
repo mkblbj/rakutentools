@@ -122,7 +122,7 @@ function OptionsIndex() {
       <div className="bg-white border-b">
         <div className="max-w-6xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <img src="https://pic.x-yue.top/i/2026/02/25/li6n6d.jpg" alt="UO Rakutentools" className="h-14 rounded-lg" />
+            <img src="https://pic.x-yue.top/i/2026/02/25/li6n6d.jpg" alt="評価返信AI" className="h-14 rounded-lg" />
             <div className="flex items-center gap-4">
               <div className="flex rounded-lg overflow-hidden border border-gray-200">
                 {LANGUAGES.map(({ code, label }) => (

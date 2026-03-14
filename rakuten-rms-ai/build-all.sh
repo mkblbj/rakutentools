@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# UO Rakutentools - 构建所有版本
+# 評価返信AI - 构建所有版本
 # 用途：一次性构建 Chrome 和 Firefox 生产版本
 
-echo "🚀 开始构建 UO Rakutentools..."
+echo "🚀 开始构建 評価返信AI..."
 echo ""
 
 # 1. 清理旧的构建文件
@@ -37,12 +37,12 @@ echo ""
 echo "📦 打包所有版本..."
 cd build
 if [ -d "chrome-mv3-prod" ]; then
-    zip -r uo-rakutentools-chrome.zip chrome-mv3-prod/
-    echo "✅ Chrome 打包完成: build/uo-rakutentools-chrome.zip"
+    zip -r hyoka-henshin-ai-chrome.zip chrome-mv3-prod/
+    echo "✅ Chrome 打包完成: build/hyoka-henshin-ai-chrome.zip"
 fi
 if [ -d "firefox-mv2-prod" ]; then
-    zip -r uo-rakutentools-firefox.zip firefox-mv2-prod/
-    echo "✅ Firefox 打包完成: build/uo-rakutentools-firefox.zip"
+    zip -r hyoka-henshin-ai-firefox.zip firefox-mv2-prod/
+    echo "✅ Firefox 打包完成: build/hyoka-henshin-ai-firefox.zip"
 fi
 cd ..
 

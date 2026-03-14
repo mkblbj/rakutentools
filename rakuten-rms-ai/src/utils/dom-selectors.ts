@@ -192,7 +192,7 @@ export function extractAllReviews(): ReviewData[] {
 }
 
 /**
- * 为评价容器添加 UO AI 按钮
+ * 为评价容器添加評価返信AI按钮
  */
 export function injectUOAIButton(
   container: HTMLElement,
@@ -213,7 +213,7 @@ export function injectUOAIButton(
       return null
     }
     
-    // 创建 UO AI 按钮
+    // 创建評価返信AI按钮
     const button = document.createElement('button')
     button.className = 'uo-ai-button'
     button.type = 'button'
@@ -242,7 +242,7 @@ export function injectUOAIButton(
     
     // 添加文字
     const text = document.createElement('span')
-    text.textContent = 'UO AI 生成'
+    text.textContent = '評価返信AI 生成'
     button.appendChild(text)
     
     // 悬停效果
@@ -277,7 +277,7 @@ export function injectUOAIButton(
     
     return button
   } catch (error) {
-    console.error('注入 UO AI 按钮失败:', error)
+    console.error('注入評価返信AI按钮失败:', error)
     return null
   }
 }

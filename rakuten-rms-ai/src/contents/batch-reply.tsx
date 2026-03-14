@@ -178,8 +178,8 @@ function BatchReplyFAB() {
           padding: "16px 20px", minWidth: "240px",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-            <img src="https://pic.x-yue.top/i/2026/02/25/kr8o0q.png" alt="UO AI" style={{ width: "24px", height: "24px", borderRadius: "4px" }} />
-            <span style={{ fontSize: "14px", fontWeight: 600, color: "#333" }}>UO AI</span>
+            <img src="https://pic.x-yue.top/i/2026/02/25/kr8o0q.png" alt="評価返信AI" style={{ width: "24px", height: "24px", borderRadius: "4px" }} />
+            <span style={{ fontSize: "14px", fontWeight: 600, color: "#333" }}>評価返信AI</span>
           </div>
           <div style={{ fontSize: "13px", color: "#555", lineHeight: "1.6", marginBottom: "14px" }}>
             {notice}
@@ -256,7 +256,7 @@ function BatchReplyFAB() {
           padding: "16px 20px", minWidth: "240px",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-            <img src="https://pic.x-yue.top/i/2026/02/25/kr8o0q.png" alt="UO AI" style={{ width: "24px", height: "24px", borderRadius: "4px" }} />
+            <img src="https://pic.x-yue.top/i/2026/02/25/kr8o0q.png" alt="評価返信AI" style={{ width: "24px", height: "24px", borderRadius: "4px" }} />
             <span style={{ fontSize: "14px", fontWeight: 600, color: "#333" }}>{t("cs.batchTitle")}</span>
           </div>
           <div style={{ fontSize: "13px", color: "#555", lineHeight: "1.6", marginBottom: "14px" }}>
@@ -312,7 +312,7 @@ function BatchReplyFAB() {
         title={fabHovered ? undefined : t("cs.batchFabTitle")}>
         <img
           src="https://pic.x-yue.top/i/2026/02/25/kr8o0q.png"
-          alt="UO AI"
+          alt="評価返信AI"
           style={{
             width: "36px", height: "36px", borderRadius: "6px",
             flexShrink: 0, transition: "transform 0.3s",

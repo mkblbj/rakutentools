@@ -103,7 +103,7 @@ export function testReviewExtraction() {
  * 测试按钮注入
  */
 export function testButtonInjection() {
-  console.log('🧪 测试 UO AI 按钮注入...')
+  console.log('🧪 测试評価返信AI按钮注入...')
   
   const reviews = extractAllReviews()
   if (reviews.length === 0) {
@@ -116,9 +116,9 @@ export function testButtonInjection() {
   const { injectUOAIButton } = require('./dom-selectors')
   
   const button = injectUOAIButton(firstReview.container, (reviewData) => {
-    console.log('🎯 UO AI 按钮被点击！')
+    console.log('🎯 評価返信AI按钮被点击！')
     console.log('评价数据:', reviewData)
-    alert(`UO AI 按钮点击测试成功！\n\n评价内容：${reviewData.reviewContent.substring(0, 100)}...`)
+    alert(`評価返信AI按钮点击测试成功！\n\n评价内容：${reviewData.reviewContent.substring(0, 100)}...`)
   })
   
   if (button) {
