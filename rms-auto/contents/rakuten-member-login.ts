@@ -154,101 +154,123 @@ const findTextboxByAccessibleName = (name: string): HTMLInputElement | null => {
   return null
 }
 
-// 查找提交按钮
+// 查找提交按钮（语言无关方案）
 const findSubmitButton = (): HTMLElement | null => {
-  // 方法1: 查找 button 元素
   const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("button"))
-  const btn1 = buttons.find(btn => btn.textContent?.includes("次へ"))
-  if (btn1) {
-    console.log("[Rakuten Member Login] Found submit button via button selector")
-    return btn1
+  
+  // 多语言文本匹配
+  const submitTexts = ["次へ", "Next", "下一步", "下一個"]
+  for (const text of submitTexts) {
+    const btn = buttons.find(btn => btn.textContent?.includes(text))
+    if (btn) {
+      console.log("[Rakuten Member Login] Found submit button via text:", text)
+      return btn
+    }
   }
   
-  // 方法2: XPath 查找
-  const xpath = "//*[contains(text(), '次へ')]"
-  const xpathResult = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null)
-  if (xpathResult.singleNodeValue) {
-    console.log("[Rakuten Member Login] Found submit button via XPath")
-    return xpathResult.singleNodeValue as HTMLElement
+  // 按 DOM 位置：提交按钮始终是第一个 button
+  if (buttons.length >= 1) {
+    console.log("[Rakuten Member Login] Found submit button via DOM position (1st button):", buttons[0].textContent?.trim())
+    return buttons[0]
   }
   
-  // 方法3: 查找 type=submit 的按钮
+  // type=submit 备选
   const submitBtn = document.querySelector<HTMLElement>('button[type="submit"], input[type="submit"]')
   if (submitBtn) {
     console.log("[Rakuten Member Login] Found submit button via type=submit")
     return submitBtn
   }
   
-  console.log("[Rakuten Member Login] Submit button not found. Buttons on page:")
-  buttons.forEach((btn, i) => {
-    console.log(`  [${i}] "${btn.textContent?.substring(0, 30)}"`)
-  })
-  
+  console.log("[Rakuten Member Login] Submit button not found")
   return null
 }
 
-// 查找切换账户按钮
+// 查找切换账户按钮（语言无关方案）
 const findSwitchAccountButton = (): HTMLElement | null => {
-  // 调试：打印页面上所有按钮
   const allButtons = Array.from(document.querySelectorAll("button"))
   console.log("[Rakuten Member Login] DEBUG - Found", allButtons.length, "button elements")
   allButtons.forEach((btn, i) => {
-    console.log(`  [${i}] tag=${btn.tagName} text="${btn.textContent?.substring(0, 50)}"`)
+    console.log(`  [${i}] text="${btn.textContent?.substring(0, 50)?.trim()}"`)
   })
   
-  // 方法1: 直接用 XPath 查找包含文本的元素
-  const xpath = "//*[contains(text(), '別の楽天ID')]"
-  const xpathResult = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null)
-  if (xpathResult.singleNodeValue) {
-    console.log("[Rakuten Member Login] Found via XPath:", xpathResult.singleNodeValue)
-    return xpathResult.singleNodeValue as HTMLElement
-  }
+  // 多语言文本匹配
+  const switchTexts = [
+    "別の楽天ID",        // 日语
+    "different Rakuten",  // 英语
+    "其他乐天ID",        // 简体中文
+    "其他樂天ID",        // 繁体中文
+    "별도의 라쿠텐",      // 韩语
+  ]
   
-  // 方法2: 查找 button 元素
-  const btn1 = allButtons.find(btn => btn.textContent?.includes("別の楽天ID"))
-  if (btn1) {
-    console.log("[Rakuten Member Login] Found via button selector")
-    return btn1
-  }
-  
-  // 方法3: 遍历所有元素查找
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT)
-  let node: Node | null
-  while ((node = walker.nextNode())) {
-    const el = node as HTMLElement
-    if (el.textContent?.includes("別の楽天ID") && !el.textContent?.includes("別の楽天IDでログイン別の楽天ID")) {
-      // 找到最内层的包含该文本的元素
-      if (el.children.length === 0 || el.innerText?.trim() === "別の楽天IDでログイン") {
-        console.log("[Rakuten Member Login] Found via TreeWalker:", el.tagName, el.className)
-        return el
-      }
+  // 方法1: 按文本匹配
+  for (const text of switchTexts) {
+    const btn = allButtons.find(btn => btn.textContent?.includes(text))
+    if (btn) {
+      console.log("[Rakuten Member Login] Found switch button via text match:", text)
+      return btn
     }
   }
   
-  console.log("[Rakuten Member Login] Button not found by any method")
+  // 方法2: 按 DOM 位置找（语言完全无关）
+  // session_upgrade 密码页面的结构固定：
+  //   button[0] = 次へ（提交）
+  //   button[1] = パスワードをお忘れの方（忘记密码）
+  //   button[2] = 別の楽天IDでログイン（切换账户）<-- 我们要的
+  // 切换账户按钮始终是第3个按钮（索引2），且是提交按钮之后的第2个
+  if (allButtons.length >= 3) {
+    // 找到提交按钮（第一个按钮）之后的区域里的最后一个按钮
+    // 提交按钮的特征：它的兄弟节点包含另外两个按钮
+    const submitBtn = allButtons[0]
+    const candidateBtn = allButtons[2]
+    
+    if (submitBtn && candidateBtn && submitBtn !== candidateBtn) {
+      console.log("[Rakuten Member Login] Found switch button via DOM position (3rd button):", candidateBtn.textContent?.trim())
+      return candidateBtn
+    }
+  }
+  
+  console.log("[Rakuten Member Login] Switch button not found by any method")
+  return null
+}
+
+// 从页面欢迎语提取当前记住的用户名（例如 "ようこそ uo3911" -> "uo3911"）
+const getWelcomeUsername = (): string | null => {
+  const headings = Array.from(document.querySelectorAll("h1, h2, [role='heading']"))
+  for (const h of headings) {
+    const text = h.textContent?.trim() || ""
+    // 多语言: "ようこそ xxx" / "Welcome xxx" / "欢迎 xxx"
+    const match = text.match(/(?:ようこそ|Welcome|欢迎|歡迎)\s+(.+)/i)
+    if (match) {
+      return match[1].trim()
+    }
+  }
   return null
 }
 
 // 获取当前页面状态
-const getCurrentPageState = (): "sign_in" | "sign_in_password" | "session_upgrade" | "unknown" => {
+const getCurrentPageState = (): "sign_in" | "sign_in_password" | "session_upgrade_password" | "unknown" => {
   const hash = window.location.hash
   const pathname = window.location.pathname
+  const isSessionUpgrade = pathname.includes("/session/upgrade")
   
-  // 优先检查 hash（SPA 路由状态）
-  // 如果 hash 是密码页面，不管 pathname 是什么，都应该填密码
+  // session/upgrade + 密码 hash：记住账号的密码页面，需要判断账号是否正确
+  if (isSessionUpgrade && hash.includes("sign_in/password")) {
+    return "session_upgrade_password"
+  }
+  
+  // 普通完整登录流程的密码页面
   if (hash.includes("sign_in/password")) {
     return "sign_in_password"
   }
   
-  // 如果 hash 是登录页面（输入用户ID）
+  // 输入用户ID页面
   if (hash.includes("sign_in") && !hash.includes("password")) {
     return "sign_in"
   }
   
-  // 如果是 session_upgrade 但 hash 不是具体的登录步骤
-  // 说明页面还在初始加载，需要点击切换按钮
-  if (pathname.includes("/session/upgrade")) {
-    return "session_upgrade"
+  // session_upgrade 但 hash 还没定型（初始加载）
+  if (isSessionUpgrade) {
+    return "session_upgrade_password"
   }
   
   return "unknown"
@@ -298,21 +320,56 @@ const handleSessionUpgrade = async (): Promise<boolean> => {
   return false
 }
 
+// 防重复执行锁
+let lastHandledKey = ""
+
+// 填写密码并提交
+const fillPasswordAndSubmit = (passwordInput: HTMLInputElement, password: string) => {
+  console.log("[Rakuten Member Login] Found password input, filling...")
+  simulateInput(passwordInput, password)
+  
+  console.log("[Rakuten Member Login] Will submit with Enter key in 1500ms")
+  setTimeout(() => {
+    console.log("[Rakuten Member Login] Pressing Enter to submit")
+    passwordInput.focus()
+    
+    const enterEvent = new KeyboardEvent("keydown", {
+      key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true
+    })
+    passwordInput.dispatchEvent(enterEvent)
+    passwordInput.dispatchEvent(new KeyboardEvent("keypress", {
+      key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true
+    }))
+    passwordInput.dispatchEvent(new KeyboardEvent("keyup", {
+      key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true
+    }))
+    
+    setTimeout(() => {
+      const form = passwordInput.closest("form")
+      if (form) {
+        console.log("[Rakuten Member Login] Fallback: submitting form directly")
+        if (form.requestSubmit) { form.requestSubmit() } else { form.submit() }
+      }
+    }, 500)
+  }, 1500)
+}
+
 // 主要的自动填充逻辑
 const autoFillLogin = async () => {
   const pageState = getCurrentPageState()
+  const pageKey = pageState + "|" + window.location.hash
+  
+  // 防重复处理
+  if (pageKey === lastHandledKey) {
+    console.log("[Rakuten Member Login] Already handled this page state, skipping")
+    return
+  }
+  
   console.log("[Rakuten Member Login] Page state:", pageState, "URL:", window.location.href)
   
   if (pageState === "unknown") {
     console.log("[Rakuten Member Login] Unknown page state, skipping")
     return
-  }
-  
-  // 🔥 关键：session_upgrade 页面强制切换到完整登录流程
-  // 避免多店铺时登录到错误的账户
-  if (pageState === "session_upgrade") {
-    await handleSessionUpgrade()
-    return  // 切换后页面会跳转，不需要继续处理
   }
   
   const shopNo = await getShopNo()
@@ -323,120 +380,119 @@ const autoFillLogin = async () => {
     return
   }
   
+  let shops: Shop[] = []
+  let shop: Shop | undefined
   try {
     const data = await chrome.storage.local.get("rms")
-    const shops: Shop[] = data.rms || []
-    console.log("[Rakuten Member Login] Loaded shops:", shops.length)
-    
-    const shop = shops[parseInt(shopNo)]
-    
-    if (!shop || !shop.shopName) {
-      console.log("[Rakuten Member Login] Shop data not found for shopNo:", shopNo)
-      return
-    }
-    
-    console.log("[Rakuten Member Login] Found shop:", shop.shopName)
-    
-    // 等待页面内容加载
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    if (pageState === "sign_in") {
-      // Step 1: 输入用户ID
-      console.log("[Rakuten Member Login] Filling user ID...")
-      
-      const userIdInput = findTextboxByAccessibleName("ユーザID") ||
-                          findTextboxByAccessibleName("メールアドレス") ||
-                          document.querySelector<HTMLInputElement>("input[type='text']") ||
-                          document.querySelector<HTMLInputElement>("input:not([type='password']):not([type='hidden'])")
-      
-      if (userIdInput && shop.userId) {
-        console.log("[Rakuten Member Login] Found user ID input, filling...")
-        simulateInput(userIdInput, shop.userId)
-        
-        // 用 Enter 键提交
-        console.log("[Rakuten Member Login] Will submit user ID with Enter in 1000ms")
-        setTimeout(() => {
-          console.log("[Rakuten Member Login] Pressing Enter to submit user ID")
-          userIdInput.focus()
-          
-          const enterEvent = new KeyboardEvent("keydown", {
-            key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true
-          })
-          userIdInput.dispatchEvent(enterEvent)
-          userIdInput.dispatchEvent(new KeyboardEvent("keypress", {
-            key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true
-          }))
-          userIdInput.dispatchEvent(new KeyboardEvent("keyup", {
-            key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true
-          }))
-          
-          // 备用：提交表单
-          setTimeout(() => {
-            const form = userIdInput.closest("form")
-            if (form) {
-              console.log("[Rakuten Member Login] Fallback: submitting form")
-              form.requestSubmit?.() || form.submit()
-            }
-          }, 500)
-        }, 1000)
-      } else {
-        console.log("[Rakuten Member Login] User ID input not found or no userId configured")
-      }
-      return
-    }
-    
-    if (pageState === "sign_in_password") {
-      // Step 2: 输入密码（只在完整登录流程中，不是 session_upgrade）
-      console.log("[Rakuten Member Login] Filling password...")
-      
-      const passwordInput = findTextboxByAccessibleName("パスワード") ||
-                            document.querySelector<HTMLInputElement>("input[type='password']")
-      
-      if (passwordInput && shop.userPass) {
-        console.log("[Rakuten Member Login] Found password input, filling...")
-        simulateInput(passwordInput, shop.userPass)
-        
-        // 等待表单验证完成后，用 Enter 键提交（更接近真实用户行为）
-        console.log("[Rakuten Member Login] Will submit with Enter key in 1500ms")
-        setTimeout(() => {
-          console.log("[Rakuten Member Login] Pressing Enter to submit")
-          passwordInput.focus()
-          
-          // 创建并触发 Enter 键事件
-          const enterEvent = new KeyboardEvent("keydown", {
-            key: "Enter",
-            code: "Enter",
-            keyCode: 13,
-            which: 13,
-            bubbles: true,
-            cancelable: true
-          })
-          passwordInput.dispatchEvent(enterEvent)
-          
-          // 也触发 keyup 和 keypress
-          passwordInput.dispatchEvent(new KeyboardEvent("keypress", {
-            key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true
-          }))
-          passwordInput.dispatchEvent(new KeyboardEvent("keyup", {
-            key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true
-          }))
-          
-          // 备用方案：如果 Enter 键不行，尝试提交表单
-          setTimeout(() => {
-            const form = passwordInput.closest("form")
-            if (form) {
-              console.log("[Rakuten Member Login] Fallback: submitting form directly")
-              form.requestSubmit?.() || form.submit()
-            }
-          }, 500)
-        }, 1500)
-      } else {
-        console.log("[Rakuten Member Login] Password input not found or no userPass configured")
-      }
-      return
-    }
+    shops = data.rms || []
+    shop = shops[parseInt(shopNo)]
   } catch (error) {
-    console.error("[Rakuten Member Login] Error:", error)
+    console.error("[Rakuten Member Login] Error loading shops:", error)
+    return
+  }
+  
+  if (!shop || !shop.shopName) {
+    console.log("[Rakuten Member Login] Shop data not found for shopNo:", shopNo)
+    return
+  }
+  
+  console.log("[Rakuten Member Login] Found shop:", shop.shopName, "userId:", shop.userId)
+  
+  // 等待页面内容加载
+  await new Promise(resolve => setTimeout(resolve, 500))
+  
+  // 标记已处理
+  lastHandledKey = pageKey
+  
+  // === session_upgrade 密码页面：比对用户名决定是否需要切换 ===
+  if (pageState === "session_upgrade_password") {
+    const welcomeUser = getWelcomeUsername()
+    console.log("[Rakuten Member Login] Welcome username on page:", welcomeUser, "| Target userId:", shop.userId)
+    
+    if (welcomeUser && shop.userId) {
+      // 不区分大小写比较
+      const pageUser = welcomeUser.toLowerCase()
+      const targetUser = shop.userId.toLowerCase()
+      
+      if (pageUser === targetUser || pageUser.startsWith(targetUser) || targetUser.startsWith(pageUser)) {
+        // 用户名匹配 -> 直接填密码
+        console.log("[Rakuten Member Login] Username matches! Filling password directly.")
+        
+        const passwordInput = findTextboxByAccessibleName("パスワード") ||
+                              document.querySelector<HTMLInputElement>("input[type='password']")
+        
+        if (passwordInput && shop.userPass) {
+          fillPasswordAndSubmit(passwordInput, shop.userPass)
+        }
+        return
+      }
+    }
+    
+    // 用户名不匹配或无法获取 -> 切换账号
+    console.log("[Rakuten Member Login] Username mismatch or unknown, switching account...")
+    lastHandledKey = ""  // 允许后续重新处理
+    await handleSessionUpgrade()
+    return
+  }
+  
+  // === 完整登录流程 Step 1: 输入用户ID ===
+  if (pageState === "sign_in") {
+    console.log("[Rakuten Member Login] Filling user ID...")
+    
+    const userIdInput = findTextboxByAccessibleName("ユーザID") ||
+                        findTextboxByAccessibleName("メールアドレス") ||
+                        findTextboxByAccessibleName("User ID") ||
+                        findTextboxByAccessibleName("email") ||
+                        document.querySelector<HTMLInputElement>("input[type='text']") ||
+                        document.querySelector<HTMLInputElement>("input:not([type='password']):not([type='hidden'])")
+    
+    if (userIdInput && shop.userId) {
+      console.log("[Rakuten Member Login] Found user ID input, filling...")
+      simulateInput(userIdInput, shop.userId)
+      
+      console.log("[Rakuten Member Login] Will submit user ID with Enter in 1000ms")
+      setTimeout(() => {
+        console.log("[Rakuten Member Login] Pressing Enter to submit user ID")
+        userIdInput.focus()
+        
+        const enterEvent = new KeyboardEvent("keydown", {
+          key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true
+        })
+        userIdInput.dispatchEvent(enterEvent)
+        userIdInput.dispatchEvent(new KeyboardEvent("keypress", {
+          key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true
+        }))
+        userIdInput.dispatchEvent(new KeyboardEvent("keyup", {
+          key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true
+        }))
+        
+        setTimeout(() => {
+          const form = userIdInput.closest("form")
+          if (form) {
+            console.log("[Rakuten Member Login] Fallback: submitting form")
+            if (form.requestSubmit) { form.requestSubmit() } else { form.submit() }
+          }
+        }, 500)
+      }, 1000)
+    } else {
+      console.log("[Rakuten Member Login] User ID input not found or no userId configured")
+    }
+    return
+  }
+  
+  // === 完整登录流程 Step 2: 输入密码 ===
+  if (pageState === "sign_in_password") {
+    console.log("[Rakuten Member Login] Filling password...")
+    
+    const passwordInput = findTextboxByAccessibleName("パスワード") ||
+                          document.querySelector<HTMLInputElement>("input[type='password']")
+    
+    if (passwordInput && shop.userPass) {
+      fillPasswordAndSubmit(passwordInput, shop.userPass)
+    } else {
+      console.log("[Rakuten Member Login] Password input not found or no userPass configured")
+    }
+    return
   }
 }
 
@@ -454,24 +510,16 @@ const checkHashChange = () => {
 const init = () => {
   console.log("[Rakuten Member Login] Script loaded, URL:", window.location.href)
   
-  const pageState = getCurrentPageState()
+  setTimeout(autoFillLogin, 300)
   
-  // session_upgrade 页面需要尽快处理（切换账户）
-  if (pageState === "session_upgrade") {
-    console.log("[Rakuten Member Login] Quick handling session_upgrade...")
-    setTimeout(autoFillLogin, 100)  // 更快响应
-  } else {
-    // 其他页面正常延迟
-    setTimeout(autoFillLogin, 500)
-  }
-  
-  // 监听 hash 变化
+  // 监听 hash 变化（SPA 路由切换时重新处理）
   window.addEventListener("hashchange", () => {
     console.log("[Rakuten Member Login] Hash change event")
+    lastHandledKey = ""  // hash 变了，允许重新处理
     setTimeout(autoFillLogin, 300)
   })
   
-  // 额外的 hash 变化检测（某些 SPA 框架可能不触发 hashchange）
+  // 额外的 hash 变化检测
   setInterval(checkHashChange, 500)
 }
 
