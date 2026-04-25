@@ -1,168 +1,339 @@
 import { useEffect, useRef, useState } from "react"
 
-interface Shop {
-  shopName: string
-  loginId: string
-  loginPass: string
-  userId: string
-  userPass: string
+import {
+  buildExportData,
+  createEmptyAupayShop,
+  createEmptyMercariLink,
+  createEmptyShop,
+  createEmptyTemuShop,
+  normalizeExportData,
+  readLocalConfig,
+  readSyncSettings,
+  writeSyncSettings,
+  type AupayShop,
+  type MercariLink,
+  type Shop,
+  type SyncSettings,
+  type TemuShop
+} from "~lib/config"
+import { syncRemoteConfigToLocal } from "~lib/sync"
+
+type StatusTone = "success" | "error" | "info"
+
+const pageStyle = {
+  padding: "24px",
+  maxWidth: "1200px",
+  margin: "0 auto",
+  fontFamily:
+    "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', sans-serif",
+  background: "#f5f7fa",
+  minHeight: "100vh"
+} as const
+
+const cardStyle = {
+  background: "white",
+  borderRadius: "12px",
+  padding: "24px",
+  boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+} as const
+
+const inputStyle = {
+  width: "100%",
+  padding: "10px 12px",
+  fontSize: "14px",
+  border: "1px solid #d2d6dc",
+  borderRadius: "6px",
+  outline: "none",
+  boxSizing: "border-box" as const,
+  background: "white"
 }
 
-interface MercariLink {
-  name: string
-  url: string
+const smallLabelStyle = {
+  fontSize: "12px",
+  color: "#4a5568",
+  fontWeight: "600",
+  marginBottom: "4px",
+  display: "block"
+} as const
+
+const getFilledCount = <T,>(
+  items: T[],
+  isFilled: (item: T) => boolean
+): number => {
+  return items.reduce((acc, item, index) => {
+    return isFilled(item) ? index + 1 : acc
+  }, 0)
 }
 
-interface AupayShop {
-  name: string
-  loginId: string
-  password: string
+const hasAnyRmsField = (shop: Shop): boolean => {
+  return Boolean(
+    shop.shopName ||
+      shop.loginId ||
+      shop.loginPass ||
+      shop.userId ||
+      shop.userPass
+  )
 }
 
-interface TemuShop {
-  name: string
-  phone: string
-  password: string
+const hasAnyMercariField = (link: MercariLink): boolean => {
+  return Boolean(link.name || link.url)
 }
 
-interface ExportData {
-  version: string
-  exportDate: string
-  shops: Shop[]
-  mercariLinks?: MercariLink[]
-  aupayShops?: AupayShop[]
-  temuShops?: TemuShop[]
+const hasAnyAupayField = (shop: AupayShop): boolean => {
+  return Boolean(shop.name || shop.loginId || shop.password)
+}
+
+const hasAnyTemuField = (shop: TemuShop): boolean => {
+  return Boolean(shop.name || shop.phone || shop.password)
+}
+
+const formatSyncTime = (value?: string): string => {
+  if (!value) {
+    return "未同步"
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return date.toLocaleString("ja-JP")
 }
 
 function OptionsPage() {
   const [inputPin, setInputPin] = useState("")
+  const [localPinCode, setLocalPinCode] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [status, setStatus] = useState("")
+  const [statusTone, setStatusTone] = useState<StatusTone>("success")
+  const [loading, setLoading] = useState(true)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [syncSettings, setSyncSettings] = useState<SyncSettings>({
+    enabled: false,
+    endpointUrl: "",
+    lastSyncStatus: "idle",
+    lastSyncMessage: ""
+  })
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // 本地状态管理
   const [localShops, setLocalShops] = useState<Shop[]>(() =>
-    Array.from({ length: 20 }, () => ({
-      shopName: "",
-      loginId: "",
-      loginPass: "",
-      userId: "",
-      userPass: ""
-    }))
+    Array.from({ length: 20 }, () => createEmptyShop())
   )
-
-  const [localPinCode, setLocalPinCode] = useState("")
-
-  // メルカリ 链接状态
   const [mercariLinks, setMercariLinks] = useState<MercariLink[]>(() =>
-    Array.from({ length: 5 }, () => ({ name: "", url: "" }))
+    Array.from({ length: 5 }, () => createEmptyMercariLink())
   )
-  const [visibleMercariCount, setVisibleMercariCount] = useState(1)
-
-  // auPay Market 状态
   const [aupayShops, setAupayShops] = useState<AupayShop[]>(() =>
-    Array.from({ length: 5 }, () => ({ name: "", loginId: "", password: "" }))
+    Array.from({ length: 5 }, () => createEmptyAupayShop())
   )
-  const [visibleAupayCount, setVisibleAupayCount] = useState(1)
-
-  // TEMU 状态
   const [temuShops, setTemuShops] = useState<TemuShop[]>(() =>
-    Array.from({ length: 5 }, () => ({ name: "", phone: "", password: "" }))
+    Array.from({ length: 5 }, () => createEmptyTemuShop())
   )
+
+  const [visibleCount, setVisibleCount] = useState(1)
+  const [visibleMercariCount, setVisibleMercariCount] = useState(1)
+  const [visibleAupayCount, setVisibleAupayCount] = useState(1)
   const [visibleTemuCount, setVisibleTemuCount] = useState(1)
 
-  // 同步 storage 数据到本地状态
+  const setFeedback = (message: string, tone: StatusTone = "success") => {
+    setStatus(message)
+    setStatusTone(tone)
+  }
+
+  const applyConfigState = (data: {
+    shops: Shop[]
+    mercariLinks: MercariLink[]
+    aupayShops: AupayShop[]
+    temuShops: TemuShop[]
+  }) => {
+    setLocalShops(data.shops)
+    setMercariLinks(data.mercariLinks)
+    setAupayShops(data.aupayShops)
+    setTemuShops(data.temuShops)
+    setVisibleCount(Math.max(getFilledCount(data.shops, hasAnyRmsField), 1))
+    setVisibleMercariCount(
+      Math.max(getFilledCount(data.mercariLinks, hasAnyMercariField), 1)
+    )
+    setVisibleAupayCount(
+      Math.max(getFilledCount(data.aupayShops, hasAnyAupayField), 1)
+    )
+    setVisibleTemuCount(
+      Math.max(getFilledCount(data.temuShops, hasAnyTemuField), 1)
+    )
+  }
+
+  const refreshFromStorage = async () => {
+    const [localData, currentSyncSettings] = await Promise.all([
+      readLocalConfig(),
+      readSyncSettings()
+    ])
+
+    setLocalPinCode(localData.rmsPinCode)
+    setSyncSettings(currentSyncSettings)
+    applyConfigState(localData)
+  }
+
+  const runSync = async (successMessage?: string) => {
+    setIsSyncing(true)
+
+    try {
+      const result = await syncRemoteConfigToLocal({ timeoutMs: 5000 })
+      await refreshFromStorage()
+
+      if (result.ok) {
+        setFeedback(successMessage ?? result.message, "success")
+      } else {
+        setFeedback(
+          `遠端同期に失敗しました。ローカルキャッシュを使用します: ${result.message}`,
+          "error"
+        )
+      }
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   useEffect(() => {
-    chrome.storage.local.get(["rms", "rmsPinCode", "mercariLinks", "aupayShops", "temuShops"], (data) => {
-      if (data.rms && Array.isArray(data.rms)) {
-        const normalized = Array.from({ length: 20 }, (_, i) => {
-          const shop = data.rms[i]
-          return shop || {
-            shopName: "",
-            loginId: "",
-            loginPass: "",
-            userId: "",
-            userPass: ""
+    let active = true
+
+    const load = async () => {
+      try {
+        const [localData, currentSyncSettings] = await Promise.all([
+          readLocalConfig(),
+          readSyncSettings()
+        ])
+
+        if (!active) {
+          return
+        }
+
+        setLocalPinCode(localData.rmsPinCode)
+        setSyncSettings(currentSyncSettings)
+        applyConfigState(localData)
+
+        if (currentSyncSettings.enabled && currentSyncSettings.endpointUrl) {
+          setIsSyncing(true)
+          const result = await syncRemoteConfigToLocal({ timeoutMs: 5000 })
+          const [latestLocal, latestSyncSettings] = await Promise.all([
+            readLocalConfig(),
+            readSyncSettings()
+          ])
+
+          if (!active) {
+            return
           }
-        })
-        setLocalShops(normalized)
-        
-        // 更新显示数量
-        const filledCount = normalized.reduce((acc, shop, i) => {
-          if (shop.shopName || shop.loginId || shop.loginPass || shop.userId || shop.userPass) {
-            return i + 1
+
+          setSyncSettings(latestSyncSettings)
+          applyConfigState(latestLocal)
+
+          if (!result.ok) {
+            setFeedback(
+              `遠端同期に失敗しました。ローカルキャッシュを使用します: ${result.message}`,
+              "error"
+            )
+          } else {
+            setFeedback(result.message, "success")
           }
-          return acc
-        }, 0)
-        setVisibleCount(Math.max(filledCount, 1))
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "不明なエラー"
+        if (active) {
+          setFeedback(`設定の読み込みに失敗しました: ${message}`, "error")
+        }
+      } finally {
+        if (active) {
+          setLoading(false)
+          setIsSyncing(false)
+        }
       }
-      if (data.rmsPinCode) {
-        setLocalPinCode(data.rmsPinCode)
-      }
-      if (data.mercariLinks && Array.isArray(data.mercariLinks)) {
-        const normalized = Array.from({ length: 5 }, (_, i) => {
-          const link = data.mercariLinks[i]
-          return link || { name: "", url: "" }
-        })
-        setMercariLinks(normalized)
-        
-        const filledCount = normalized.reduce((acc, link, i) => {
-          if (link.name || link.url) return i + 1
-          return acc
-        }, 0)
-        setVisibleMercariCount(Math.max(filledCount, 1))
-      }
-      if (data.aupayShops && Array.isArray(data.aupayShops)) {
-        const normalized = Array.from({ length: 5 }, (_, i) => {
-          const shop = data.aupayShops[i]
-          return shop || { name: "", loginId: "", password: "" }
-        })
-        setAupayShops(normalized)
-        
-        const filledCount = normalized.reduce((acc, shop, i) => {
-          if (shop.name || shop.loginId || shop.password) return i + 1
-          return acc
-        }, 0)
-        setVisibleAupayCount(Math.max(filledCount, 1))
-      }
-      if (data.temuShops && Array.isArray(data.temuShops)) {
-        const normalized = Array.from({ length: 5 }, (_, i) => {
-          const shop = data.temuShops[i]
-          return shop || { name: "", phone: "", password: "" }
-        })
-        setTemuShops(normalized)
-        
-        const filledCount = normalized.reduce((acc, shop, i) => {
-          if (shop.name || shop.phone || shop.password) return i + 1
-          return acc
-        }, 0)
-        setVisibleTemuCount(Math.max(filledCount, 1))
-      }
-    })
+    }
+
+    void load()
+
+    return () => {
+      active = false
+    }
   }, [])
 
-  const handleSave = () => {
-    if (inputPin.length === 0) {
-      alert("PINコードが入力されていません。")
+  const ensurePinAuthorized = (): string | null => {
+    const trimmedPin = inputPin.trim()
+
+    if (!trimmedPin) {
+      alert("PIN コードを入力してください。")
+      return null
+    }
+
+    if (localPinCode && trimmedPin !== localPinCode) {
+      alert("PIN コードが間違っています。")
+      return null
+    }
+
+    return trimmedPin
+  }
+
+  const persistLocalPin = async (pin: string) => {
+    await chrome.storage.local.set({ rmsPinCode: pin })
+    setLocalPinCode(pin)
+  }
+
+  const updateShop = (index: number, field: keyof Shop, value: string) => {
+    setLocalShops((current) => {
+      const next = [...current]
+      next[index] = { ...next[index], [field]: value }
+      return next
+    })
+  }
+
+  const updateMercariLink = (
+    index: number,
+    field: keyof MercariLink,
+    value: string
+  ) => {
+    setMercariLinks((current) => {
+      const next = [...current]
+      next[index] = { ...next[index], [field]: value }
+      return next
+    })
+  }
+
+  const updateAupayShop = (
+    index: number,
+    field: keyof AupayShop,
+    value: string
+  ) => {
+    setAupayShops((current) => {
+      const next = [...current]
+      next[index] = { ...next[index], [field]: value }
+      return next
+    })
+  }
+
+  const updateTemuShop = (
+    index: number,
+    field: keyof TemuShop,
+    value: string
+  ) => {
+    setTemuShops((current) => {
+      const next = [...current]
+      next[index] = { ...next[index], [field]: value }
+      return next
+    })
+  }
+
+  const handleSave = async () => {
+    if (syncSettings.enabled) {
+      alert("只読同期モードではローカル設定を保存できません。")
       return
     }
 
-    if (localPinCode !== "" && inputPin !== localPinCode) {
-      alert("PINコードが間違っています。")
+    const pin = ensurePinAuthorized()
+    if (!pin) {
       return
     }
 
-    // 验证输入
-    for (let i = 0; i < localShops.length; i++) {
-      const shop = localShops[i]
-      const hasAnyField =
-        shop.shopName ||
-        shop.loginId ||
-        shop.loginPass ||
-        shop.userId ||
-        shop.userPass
+    for (let index = 0; index < localShops.length; index += 1) {
+      const shop = localShops[index]
 
-      if (hasAnyField) {
+      if (hasAnyRmsField(shop)) {
         if (
           !shop.shopName ||
           !shop.loginId ||
@@ -170,85 +341,50 @@ function OptionsPage() {
           !shop.userId ||
           !shop.userPass
         ) {
-          alert(`No.${i + 1} に未入力の項目があるため保存できません。`)
+          alert(`No.${index + 1} に未入力の項目があるため保存できません。`)
           return
         }
       }
     }
 
-    chrome.storage.local.set({ rms: localShops, rmsPinCode: inputPin, mercariLinks, aupayShops, temuShops }, () => {
-      setLocalPinCode(inputPin)
-      setStatus("設定を保存しました")
-      setTimeout(() => setStatus(""), 5000)
+    await chrome.storage.local.set({
+      rms: localShops,
+      rmsPinCode: pin,
+      mercariLinks,
+      aupayShops,
+      temuShops
     })
+
+    setLocalPinCode(pin)
+    setFeedback("ローカル設定を保存しました", "success")
   }
 
-  const updateMercariLink = (index: number, field: keyof MercariLink, value: string) => {
-    const newLinks = [...mercariLinks]
-    newLinks[index] = { ...newLinks[index], [field]: value }
-    setMercariLinks(newLinks)
-  }
-
-  const handleAddMercari = () => {
-    if (visibleMercariCount < 5) {
-      setVisibleMercariCount(prev => prev + 1)
-    }
-  }
-
-  const updateAupayShop = (index: number, field: keyof AupayShop, value: string) => {
-    const newShops = [...aupayShops]
-    newShops[index] = { ...newShops[index], [field]: value }
-    setAupayShops(newShops)
-  }
-
-  const handleAddAupay = () => {
-    if (visibleAupayCount < 5) {
-      setVisibleAupayCount(prev => prev + 1)
-    }
-  }
-
-  const updateTemuShop = (index: number, field: keyof TemuShop, value: string) => {
-    const newShops = [...temuShops]
-    newShops[index] = { ...newShops[index], [field]: value }
-    setTemuShops(newShops)
-  }
-
-  const handleAddTemu = () => {
-    if (visibleTemuCount < 5) {
-      setVisibleTemuCount(prev => prev + 1)
-    }
-  }
-
-  const updateShop = (index: number, field: keyof Shop, value: string) => {
-    const newShops = [...localShops]
-    newShops[index] = { ...newShops[index], [field]: value }
-    setLocalShops(newShops)
-  }
-
-  const handleExportFile = () => {
-    if (inputPin.length === 0) {
-      alert("PINコードを入力してください。")
-      return
-    }
-
-    if (localPinCode !== "" && inputPin !== localPinCode) {
-      alert("PINコードが間違っています。")
-      return
-    }
-
-    const exportData: ExportData = {
-      version: "0.1.4",
-      exportDate: new Date().toISOString(),
+  const createExportPayload = () => {
+    return buildExportData({
       shops: localShops,
       mercariLinks,
       aupayShops,
       temuShops
+    })
+  }
+
+  const handleExportFile = async () => {
+    const pin = ensurePinAuthorized()
+    if (!pin) {
+      return
     }
 
-    const dataStr = JSON.stringify(exportData, null, 2)
-    const dataBlob = new Blob([dataStr], { type: "application/json" })
+    if (!localPinCode) {
+      await persistLocalPin(pin)
+    }
+
+    const exportData = createExportPayload()
+    const dataBlob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json"
+    })
     const url = URL.createObjectURL(dataBlob)
     const link = document.createElement("a")
+
     link.href = url
     link.download = `rms-login-data-${new Date().toISOString().split("T")[0]}.json`
     document.body.appendChild(link)
@@ -256,161 +392,108 @@ function OptionsPage() {
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
 
-    setStatus("データをファイルにエクスポートしました")
-    setTimeout(() => setStatus(""), 3000)
+    setFeedback("現在のキャッシュをファイルにエクスポートしました", "success")
   }
 
   const handleExportClipboard = async () => {
-    if (inputPin.length === 0) {
-      alert("PINコードを入力してください。")
+    const pin = ensurePinAuthorized()
+    if (!pin) {
       return
     }
 
-    if (localPinCode !== "" && inputPin !== localPinCode) {
-      alert("PINコードが間違っています。")
-      return
-    }
-
-    const exportData: ExportData = {
-      version: "0.1.4",
-      exportDate: new Date().toISOString(),
-      shops: localShops,
-      mercariLinks,
-      aupayShops,
-      temuShops
+    if (!localPinCode) {
+      await persistLocalPin(pin)
     }
 
     try {
-      await navigator.clipboard.writeText(JSON.stringify(exportData, null, 2))
-      setStatus("データをクリップボードにコピーしました")
-      setTimeout(() => setStatus(""), 3000)
-    } catch (err) {
-      alert("クリップボードへのコピーに失敗しました")
+      await navigator.clipboard.writeText(
+        JSON.stringify(createExportPayload(), null, 2)
+      )
+      setFeedback("現在のキャッシュをクリップボードにコピーしました", "success")
+    } catch (error) {
+      alert("クリップボードへのコピーに失敗しました。")
     }
   }
 
-  const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const applyImportedContent = async (content: string, sourceName: string) => {
+    if (syncSettings.enabled) {
+      alert("只読同期モードではインポートできません。")
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+      return
+    }
+
+    const pin = ensurePinAuthorized()
+    if (!pin) {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+      return
+    }
+
+    try {
+      const imported = normalizeExportData(JSON.parse(content))
+      const confirmed = confirm(
+        `${sourceName} からデータをインポートしますか？\n現在のデータは上書きされます。`
+      )
+
+      if (!confirmed) {
+        return
+      }
+
+      await chrome.storage.local.set({
+        rms: imported.shops,
+        mercariLinks: imported.mercariLinks,
+        aupayShops: imported.aupayShops,
+        temuShops: imported.temuShops,
+        rmsPinCode: localPinCode || pin
+      })
+
+      setLocalPinCode(localPinCode || pin)
+      applyConfigState(imported)
+      setFeedback("データをインポートしました", "success")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "不明なエラー"
+      alert(`データの読み込みに失敗しました: ${message}`)
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+    }
+  }
+
+  const handleImportFile = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0]
-    if (!file) return
-
-    processImportData(file)
-  }
-
-  const processImportData = (source: File | string) => {
-    if (inputPin.length === 0) {
-      alert("PINコードを入力してください。")
-      if (fileInputRef.current) fileInputRef.current.value = ""
+    if (!file) {
       return
     }
 
-    if (localPinCode !== "" && inputPin !== localPinCode) {
-      alert("PINコードが間違っています。")
-      if (fileInputRef.current) fileInputRef.current.value = ""
-      return
+    const reader = new FileReader()
+    reader.onload = async (loadEvent) => {
+      await applyImportedContent(
+        (loadEvent.target?.result as string) || "",
+        file.name
+      )
     }
-
-    const processContent = (content: string, sourceName: string) => {
-      try {
-        const importData: ExportData = JSON.parse(content)
-
-        if (!importData.shops || !Array.isArray(importData.shops)) {
-          throw new Error("無効なデータ形式です")
-        }
-
-        // 确保有 20 个元素
-        const newShops = Array(20)
-          .fill(null)
-          .map((_, i) => {
-            const shop = importData.shops[i]
-            return shop || {
-              shopName: "",
-              loginId: "",
-              loginPass: "",
-              userId: "",
-              userPass: ""
-            }
-          })
-
-        const confirmed = confirm(
-          `${sourceName} からデータをインポートしますか？\n現在のデータは上書きされます。`
-        )
-
-        if (confirmed) {
-          // 处理 mercariLinks
-          const newMercariLinks = Array(5).fill(null).map((_, i) => {
-            const link = importData.mercariLinks?.[i]
-            return link || { name: "", url: "" }
-          })
-
-          // 处理 aupayShops
-          const newAupayShops = Array(5).fill(null).map((_, i) => {
-            const shop = importData.aupayShops?.[i]
-            return shop || { name: "", loginId: "", password: "" }
-          })
-
-          // 处理 temuShops
-          const newTemuShops = Array(5).fill(null).map((_, i) => {
-            const shop = importData.temuShops?.[i]
-            return shop || { name: "", phone: "", password: "" }
-          })
-
-          chrome.storage.local.set({ rms: newShops, mercariLinks: newMercariLinks, aupayShops: newAupayShops, temuShops: newTemuShops }, () => {
-            setLocalShops(newShops)
-            setMercariLinks(newMercariLinks)
-            setAupayShops(newAupayShops)
-            setTemuShops(newTemuShops)
-            
-            const filledMercariCount = newMercariLinks.reduce((acc, link, i) => {
-              if (link.name || link.url) return i + 1
-              return acc
-            }, 0)
-            setVisibleMercariCount(Math.max(filledMercariCount, 1))
-            
-            const filledAupayCount = newAupayShops.reduce((acc, shop, i) => {
-              if (shop.name || shop.loginId || shop.password) return i + 1
-              return acc
-            }, 0)
-            setVisibleAupayCount(Math.max(filledAupayCount, 1))
-            
-            const filledTemuCount = newTemuShops.reduce((acc, shop, i) => {
-              if (shop.name || shop.phone || shop.password) return i + 1
-              return acc
-            }, 0)
-            setVisibleTemuCount(Math.max(filledTemuCount, 1))
-            
-            setStatus("データをインポートしました")
-            setTimeout(() => setStatus(""), 3000)
-          })
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "不明なエラー"
-        alert("データの読み込みに失敗しました: " + message)
-      } finally {
-        if (fileInputRef.current) fileInputRef.current.value = ""
+    reader.onerror = () => {
+      alert("ファイルの読み込みに失敗しました。")
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
       }
     }
-
-    if (source instanceof File) {
-      const reader = new FileReader()
-      reader.onload = (e) => processContent(e.target?.result as string, source.name)
-      reader.onerror = () => {
-        alert("ファイルの読み込みに失敗しました")
-        if (fileInputRef.current) fileInputRef.current.value = ""
-      }
-      reader.readAsText(source)
-    } else {
-      processContent(source, "クリップボード")
-    }
+    reader.readAsText(file)
   }
 
   const handleImportFileClick = () => {
-    if (inputPin.length === 0) {
-      alert("PINコードを入力してください。")
+    if (syncSettings.enabled) {
+      alert("只読同期モードではインポートできません。")
       return
     }
 
-    if (localPinCode !== "" && inputPin !== localPinCode) {
-      alert("PINコードが間違っています。")
+    if (!ensurePinAuthorized()) {
       return
     }
 
@@ -418,167 +501,380 @@ function OptionsPage() {
   }
 
   const handleImportClipboard = async () => {
-    if (inputPin.length === 0) {
-      alert("PINコードを入力してください。")
+    if (syncSettings.enabled) {
+      alert("只読同期モードではインポートできません。")
       return
     }
 
-    if (localPinCode !== "" && inputPin !== localPinCode) {
-      alert("PINコードが間違っています。")
+    if (!ensurePinAuthorized()) {
       return
     }
 
     try {
       const text = await navigator.clipboard.readText()
       if (!text) {
-        alert("クリップボードが空です")
+        alert("クリップボードが空です。")
         return
       }
-      processImportData(text)
-    } catch (err) {
-      alert("クリップボードの読み取りに失敗しました")
+
+      await applyImportedContent(text, "クリップボード")
+    } catch (error) {
+      alert("クリップボードの読み取りに失敗しました。")
     }
   }
 
-  const handleClearData = () => {
+  const handleClearData = async () => {
+    if (syncSettings.enabled) {
+      alert("只読同期モードではデータ削除できません。")
+      return
+    }
+
+    const pin = ensurePinAuthorized()
+    if (!pin) {
+      return
+    }
+
     const confirmed = confirm(
       "すべてのデータを削除しますか？\nこの操作は取り消せません。"
     )
-    if (confirmed) {
-      chrome.storage.local.clear(() => {
-        alert("データを削除しました。ページを再読み込みします。")
-        window.location.reload()
-      })
+
+    if (!confirmed) {
+      return
     }
+
+    await chrome.storage.local.clear()
+    alert("データを削除しました。ページを再読み込みします。")
+    window.location.reload()
   }
 
-  const handleDebug = () => {
-    chrome.storage.local.get(null, (data) => {
-      console.log("=== Storage Debug ===")
-      console.log("All storage data:", data)
-      console.log("rms type:", typeof data.rms)
-      console.log("rms isArray:", Array.isArray(data.rms))
-      console.log("rms length:", data.rms?.length)
-      console.log("rms[0]:", data.rms?.[0])
-      console.log("rms[1]:", data.rms?.[1])
-      console.log("rmsPinCode:", data.rmsPinCode)
-      alert("デバッグ情報をコンソールに出力しました（F12で確認）")
+  const handleDebug = async () => {
+    const data = await chrome.storage.local.get(null)
+    console.log("=== Storage Debug ===")
+    console.log("All storage data:", data)
+    console.log("rms type:", typeof data.rms)
+    console.log("rms isArray:", Array.isArray(data.rms))
+    console.log("rms length:", data.rms?.length)
+    console.log("rmsPinCode:", data.rmsPinCode)
+    console.log("rmsSyncSettings:", data.rmsSyncSettings)
+    alert("デバッグ情報をコンソールに出力しました（F12 で確認）。")
+  }
+
+  const handleSaveSyncSettings = async () => {
+    const pin = ensurePinAuthorized()
+    if (!pin) {
+      return
+    }
+
+    const endpointUrl = syncSettings.endpointUrl.trim()
+
+    if (syncSettings.enabled && !endpointUrl) {
+      alert("同期を有効にする場合は内網 JSON アドレスを入力してください。")
+      return
+    }
+
+    await persistLocalPin(pin)
+
+    const nextSettings = await writeSyncSettings({
+      enabled: syncSettings.enabled,
+      endpointUrl,
+      lastSyncStatus: syncSettings.enabled
+        ? syncSettings.lastSyncStatus
+        : "idle",
+      lastSyncMessage: syncSettings.enabled
+        ? syncSettings.lastSyncMessage
+        : "同期は無効です"
     })
+
+    setSyncSettings(nextSettings)
+
+    if (!nextSettings.enabled) {
+      setFeedback(
+        "遠端同期を無効にしました。ローカル設定を編集できます。",
+        "success"
+      )
+      return
+    }
+
+    setFeedback("同期設定を保存しました。遠端データを取得しています...", "info")
+    await runSync("遠端同期を有効化し、最新設定を取得しました")
   }
 
-  // 计算初始显示数量
-  const [visibleCount, setVisibleCount] = useState(() => {
-    // 初始显示所有有数据的行，如果没有数据则显示1行
-    const filledCount = Array.from({ length: 20 }).reduce((acc, _, i) => {
-      const shop = localShops[i]
-      if (shop && (shop.shopName || shop.loginId || shop.loginPass || shop.userId || shop.userPass)) {
-        return i + 1
-      }
-      return acc
-    }, 0) as number
-    return Math.max(filledCount, 1)
-  })
-
-  const handleAddShop = () => {
-    if (visibleCount < 20) {
-      setVisibleCount(prev => prev + 1)
+  const handleManualSync = async () => {
+    const pin = ensurePinAuthorized()
+    if (!pin) {
+      return
     }
+
+    const endpointUrl = syncSettings.endpointUrl.trim()
+
+    if (!syncSettings.enabled || !endpointUrl) {
+      alert("同期が有効ではないか、同期先アドレスが未設定です。")
+      return
+    }
+
+    await persistLocalPin(pin)
+    const nextSettings = await writeSyncSettings({
+      ...syncSettings,
+      enabled: true,
+      endpointUrl
+    })
+    setSyncSettings(nextSettings)
+    await runSync()
   }
 
   const visibleShops = localShops.slice(0, visibleCount)
+  const visibleMercariLinks = mercariLinks.slice(0, visibleMercariCount)
+  const visibleAupayShops = aupayShops.slice(0, visibleAupayCount)
+  const visibleTemuShops = temuShops.slice(0, visibleTemuCount)
+  const isReadOnlySync = syncSettings.enabled
+  const statusColor =
+    statusTone === "success"
+      ? { color: "#276749", background: "#c6f6d5" }
+      : statusTone === "error"
+        ? { color: "#c53030", background: "#fed7d7" }
+        : { color: "#2c5282", background: "#bee3f8" }
+
+  if (loading) {
+    return (
+      <div style={pageStyle}>
+        <div style={cardStyle}>読み込み中...</div>
+      </div>
+    )
+  }
 
   return (
-    <div style={{ 
-      padding: "24px",
-      maxWidth: "1200px",
-      margin: "0 auto",
-      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans JP', sans-serif",
-      background: "#f5f7fa",
-      minHeight: "100vh"
-    }}>
-      <h1 style={{ 
-        fontSize: "28px",
-        fontWeight: "600",
-        color: "#1a202c",
-        marginBottom: "24px",
-        display: "flex",
-        alignItems: "center",
-        gap: "12px"
-      }}>
+    <div style={pageStyle}>
+      <h1
+        style={{
+          fontSize: "28px",
+          fontWeight: "600",
+          color: "#1a202c",
+          marginBottom: "24px",
+          display: "flex",
+          alignItems: "center",
+          gap: "12px"
+        }}>
         🔐 RMS自動ログイン設定
       </h1>
 
-      {/* PIN 码卡片 */}
-      <div style={{
-        background: "white",
-        borderRadius: "12px",
-        padding: "24px",
-        marginBottom: "24px",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
-      }}>
-        <h2 style={{
-          fontSize: "18px",
-          fontWeight: "600",
-          color: "#2d3748",
-          marginBottom: "16px",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px"
-        }}>
+      <div style={{ ...cardStyle, marginBottom: "24px" }}>
+        <h2
+          style={{
+            fontSize: "18px",
+            fontWeight: "600",
+            color: "#2d3748",
+            marginBottom: "16px",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px"
+          }}>
           🔑 PIN コード
         </h2>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            flexWrap: "wrap"
+          }}>
           <input
             type="password"
             value={inputPin}
-            onChange={(e) => setInputPin(e.target.value)}
-            placeholder="PIN コードを入力"
-            style={{
-              padding: "10px 14px",
-              fontSize: "14px",
-              border: "2px solid #e2e8f0",
-              borderRadius: "8px",
-              width: "200px",
-              outline: "none",
-              transition: "border-color 0.2s"
-            }}
-            onFocus={(e) => e.target.style.borderColor = "#007bff"}
-            onBlur={(e) => e.target.style.borderColor = "#e2e8f0"}
+            onChange={(event) => setInputPin(event.target.value)}
+            placeholder={
+              localPinCode ? "PIN コードを入力" : "この端末の PIN を設定"
+            }
+            style={{ ...inputStyle, width: "220px" }}
           />
           <span style={{ fontSize: "13px", color: "#718096" }}>
-            設定の変更・エクスポート・インポートに必要です
+            設定変更、同期先変更、インポート、エクスポート時に使用します
           </span>
         </div>
       </div>
 
-      {/* 操作按钮卡片 */}
-      <div style={{
-        background: "white",
-        borderRadius: "12px",
-        padding: "20px",
-        marginBottom: "24px",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
-      }}>
-        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" }}>
+      <div style={{ ...cardStyle, marginBottom: "24px" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: "16px",
+            alignItems: "center",
+            flexWrap: "wrap",
+            marginBottom: "16px"
+          }}>
+          <div>
+            <h2
+              style={{
+                fontSize: "18px",
+                fontWeight: "600",
+                color: "#2d3748",
+                margin: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
+              }}>
+              🌐 遠端只読同期
+            </h2>
+            <p
+              style={{ margin: "8px 0 0", fontSize: "13px", color: "#718096" }}>
+              設定ページとポップアップを開いた時に、内網 JSON
+              を自動取得してローカルへ反映します。
+            </p>
+          </div>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              fontSize: "14px",
+              fontWeight: "600",
+              color: "#2d3748"
+            }}>
+            <input
+              type="checkbox"
+              checked={syncSettings.enabled}
+              onChange={(event) =>
+                setSyncSettings((current) => ({
+                  ...current,
+                  enabled: event.target.checked
+                }))
+              }
+            />
+            遠端同期を有効にする
+          </label>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr auto auto",
+            gap: "12px"
+          }}>
+          <input
+            type="url"
+            value={syncSettings.endpointUrl}
+            onChange={(event) =>
+              setSyncSettings((current) => ({
+                ...current,
+                endpointUrl: event.target.value
+              }))
+            }
+            placeholder="http://intranet.local/rms-auto/config.json"
+            style={inputStyle}
+          />
+          <button
+            onClick={handleSaveSyncSettings}
+            disabled={isSyncing}
+            style={{
+              padding: "12px 20px",
+              fontSize: "14px",
+              fontWeight: "600",
+              cursor: isSyncing ? "not-allowed" : "pointer",
+              background: "#0f766e",
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              opacity: isSyncing ? 0.6 : 1
+            }}>
+            保存同步设置
+          </button>
+          <button
+            onClick={handleManualSync}
+            disabled={
+              isSyncing ||
+              !syncSettings.enabled ||
+              !syncSettings.endpointUrl.trim()
+            }
+            style={{
+              padding: "12px 20px",
+              fontSize: "14px",
+              fontWeight: "600",
+              cursor:
+                isSyncing ||
+                !syncSettings.enabled ||
+                !syncSettings.endpointUrl.trim()
+                  ? "not-allowed"
+                  : "pointer",
+              background: "#2563eb",
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              opacity:
+                isSyncing ||
+                !syncSettings.enabled ||
+                !syncSettings.endpointUrl.trim()
+                  ? 0.6
+                  : 1
+            }}>
+            {isSyncing ? "同期中..." : "立即同步"}
+          </button>
+        </div>
+
+        <div
+          style={{
+            marginTop: "16px",
+            padding: "14px 16px",
+            background:
+              syncSettings.lastSyncStatus === "error" ? "#fff5f5" : "#f7fafc",
+            border: `1px solid ${syncSettings.lastSyncStatus === "error" ? "#feb2b2" : "#e2e8f0"}`,
+            borderRadius: "8px",
+            fontSize: "13px",
+            color: "#4a5568"
+          }}>
+          <div>
+            状態:{" "}
+            <strong>
+              {syncSettings.enabled
+                ? syncSettings.endpointUrl
+                  ? syncSettings.lastSyncStatus === "error"
+                    ? "同期エラー"
+                    : syncSettings.lastSyncStatus === "success"
+                      ? "同期済み"
+                      : "待機中"
+                  : "アドレス未設定"
+                : "同期オフ"}
+            </strong>
+          </div>
+          <div style={{ marginTop: "6px" }}>
+            最終同期: {formatSyncTime(syncSettings.lastSyncAt)}
+          </div>
+          {syncSettings.lastSyncMessage ? (
+            <div style={{ marginTop: "6px" }}>
+              メッセージ: {syncSettings.lastSyncMessage}
+            </div>
+          ) : null}
+          <div style={{ marginTop: "6px", color: "#718096" }}>
+            同期オン時は、店舗設定・インポート・削除はロックされ、遠端 JSON
+            が唯一の元データになります。
+          </div>
+        </div>
+      </div>
+
+      <div style={{ ...cardStyle, marginBottom: "24px" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: "12px",
+            flexWrap: "wrap",
+            alignItems: "center"
+          }}>
           <button
             onClick={handleSave}
+            disabled={isReadOnlySync}
             style={{
               padding: "12px 24px",
               fontSize: "14px",
               fontWeight: "600",
-              cursor: "pointer",
+              cursor: isReadOnlySync ? "not-allowed" : "pointer",
               background: "#007bff",
               color: "white",
               border: "none",
               borderRadius: "8px",
-              transition: "background 0.2s",
-              boxShadow: "0 2px 4px rgba(0,123,255,0.2)"
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = "#0056b3"}
-            onMouseLeave={(e) => e.currentTarget.style.background = "#007bff"}>
+              opacity: isReadOnlySync ? 0.6 : 1
+            }}>
             💾 保存
           </button>
-          
+
           <div style={{ display: "flex", gap: "2px" }}>
             <button
               onClick={handleExportFile}
@@ -590,13 +886,8 @@ function OptionsPage() {
                 background: "#28a745",
                 color: "white",
                 border: "none",
-                borderRadius: "8px 0 0 8px",
-                borderRight: "1px solid rgba(255,255,255,0.2)",
-                transition: "background 0.2s"
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = "#218838"}
-              onMouseLeave={(e) => e.currentTarget.style.background = "#28a745"}
-              title="ファイルにエクスポート">
+                borderRadius: "8px 0 0 8px"
+              }}>
               📁 エクスポート
             </button>
             <button
@@ -608,12 +899,8 @@ function OptionsPage() {
                 background: "#28a745",
                 color: "white",
                 border: "none",
-                borderRadius: "0 8px 8px 0",
-                transition: "background 0.2s"
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = "#218838"}
-              onMouseLeave={(e) => e.currentTarget.style.background = "#28a745"}
-              title="クリップボードにコピー">
+                borderRadius: "0 8px 8px 0"
+              }}>
               📋
             </button>
           </div>
@@ -621,57 +908,51 @@ function OptionsPage() {
           <div style={{ display: "flex", gap: "2px" }}>
             <button
               onClick={handleImportFileClick}
+              disabled={isReadOnlySync}
               style={{
                 padding: "12px 20px",
                 fontSize: "14px",
                 fontWeight: "500",
-                cursor: "pointer",
+                cursor: isReadOnlySync ? "not-allowed" : "pointer",
                 background: "#ffc107",
                 color: "#000",
                 border: "none",
                 borderRadius: "8px 0 0 8px",
-                borderRight: "1px solid rgba(0,0,0,0.1)",
-                transition: "background 0.2s"
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = "#e0a800"}
-              onMouseLeave={(e) => e.currentTarget.style.background = "#ffc107"}
-              title="ファイルからインポート">
+                opacity: isReadOnlySync ? 0.6 : 1
+              }}>
               📁 インポート
             </button>
             <button
               onClick={handleImportClipboard}
+              disabled={isReadOnlySync}
               style={{
                 padding: "12px 16px",
                 fontSize: "14px",
-                cursor: "pointer",
+                cursor: isReadOnlySync ? "not-allowed" : "pointer",
                 background: "#ffc107",
                 color: "#000",
                 border: "none",
                 borderRadius: "0 8px 8px 0",
-                transition: "background 0.2s"
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = "#e0a800"}
-              onMouseLeave={(e) => e.currentTarget.style.background = "#ffc107"}
-              title="クリップボードからインポート">
+                opacity: isReadOnlySync ? 0.6 : 1
+              }}>
               📋
             </button>
           </div>
 
           <button
             onClick={handleClearData}
+            disabled={isReadOnlySync}
             style={{
               padding: "12px 20px",
               fontSize: "14px",
               fontWeight: "500",
-              cursor: "pointer",
+              cursor: isReadOnlySync ? "not-allowed" : "pointer",
               background: "#dc3545",
               color: "white",
               border: "none",
               borderRadius: "8px",
-              transition: "background 0.2s"
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = "#c82333"}
-            onMouseLeave={(e) => e.currentTarget.style.background = "#dc3545"}>
+              opacity: isReadOnlySync ? 0.6 : 1
+            }}>
             🗑️ データ削除
           </button>
 
@@ -685,696 +966,585 @@ function OptionsPage() {
               background: "#6c757d",
               color: "white",
               border: "none",
-              borderRadius: "8px",
-              transition: "background 0.2s"
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.background = "#5a6268"}
-            onMouseLeave={(e) => e.currentTarget.style.background = "#6c757d"}>
+              borderRadius: "8px"
+            }}>
             🐛 デバッグ
           </button>
 
-          {status && (
-            <span style={{ 
-              padding: "8px 16px",
-              color: "#28a745",
-              fontWeight: "600",
-              fontSize: "14px",
-              background: "#d4edda",
-              borderRadius: "8px"
-            }}>
-              ✓ {status}
+          {status ? (
+            <span
+              style={{
+                padding: "8px 16px",
+                fontWeight: "600",
+                fontSize: "14px",
+                borderRadius: "8px",
+                ...statusColor
+              }}>
+              {status}
             </span>
-          )}
+          ) : null}
         </div>
       </div>
 
-      {/* 店铺列表卡片 */}
-      <div style={{
-        background: "white",
-        borderRadius: "12px",
-        padding: "24px",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
-      }}>
-        <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "20px"
+      <fieldset
+        disabled={isReadOnlySync}
+        style={{
+          border: "none",
+          margin: 0,
+          padding: 0,
+          minWidth: 0,
+          opacity: isReadOnlySync ? 0.75 : 1
         }}>
-          <h2 style={{
-            fontSize: "18px",
-            fontWeight: "600",
-            color: "#2d3748",
-            margin: 0,
-            display: "flex",
-            alignItems: "center",
-            gap: "8px"
-          }}>
-            🏪 店舗情報
-          </h2>
-          <label style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            fontSize: "13px",
-            color: "#4a5568",
-            cursor: "pointer"
-          }}>
-            <input
-              type="checkbox"
-              checked={showPassword}
-              onChange={(e) => setShowPassword(e.target.checked)}
-              style={{ cursor: "pointer" }}
-            />
-            パスワードを表示
-          </label>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          {visibleShops.map((shop, i) => (
-            <div key={i} style={{
-              background: shop.shopName ? "#f8fafc" : "white",
-              border: shop.shopName ? "2px solid #e2e8f0" : "2px dashed #cbd5e0",
-              borderRadius: "10px",
-              padding: "16px",
-              transition: "all 0.2s"
+        <div style={cardStyle}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "20px",
+              gap: "16px",
+              flexWrap: "wrap"
             }}>
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "40px minmax(0, 1fr)", // 添加 minmax(0, 1fr) 防止溢出
-                gap: "16px",
-                alignItems: "start"
-              }}>
-                <div style={{
-                  width: "32px",
-                  height: "32px",
-                  borderRadius: "6px",
-                  background: shop.shopName ? "#007bff" : "#e2e8f0",
-                  color: "white",
+            <div>
+              <h2
+                style={{
+                  fontSize: "18px",
+                  fontWeight: "600",
+                  color: "#2d3748",
+                  margin: 0,
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                  flexShrink: 0
+                  gap: "8px"
                 }}>
-                  {i + 1}
-                </div>
-                
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px", width: "100%", minWidth: 0 }}>
-                  {/* 第一行：店铺名 */}
-                  <div>
-                    <label style={{ fontSize: "12px", color: "#4a5568", fontWeight: "600", marginBottom: "4px", display: "block" }}>
-                      店舗名
-                    </label>
-                    <input
-                      type="text"
-                      value={shop.shopName}
-                      onChange={(e) => updateShop(i, "shopName", e.target.value)}
-                      placeholder="店舗名を入力"
-                      style={{
-                        width: "100%",
-                        padding: "10px 12px",
-                        fontSize: "16px",
-                        fontWeight: "500",
-                        border: "1px solid #e2e8f0",
-                        borderRadius: "6px",
-                        outline: "none",
-                        transition: "all 0.2s",
-                        background: "#fff",
-                        boxSizing: "border-box" // 防止 padding 撑大
-                      }}
-                      onFocus={(e) => {
-                        e.target.style.borderColor = "#007bff"
-                        e.target.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)"
-                      }}
-                      onBlur={(e) => {
-                        e.target.style.borderColor = "#e2e8f0"
-                        e.target.style.boxShadow = "none"
-                      }}
-                    />
-                  </div>
-
-                  {/* 登录信息区域 */}
-                  <div style={{ 
-                    display: "grid", 
-                    gridTemplateColumns: "1fr 1px 1fr", 
-                    gap: "0",
-                    background: "#fff",
-                    borderRadius: "8px",
-                    border: "1px solid #e2e8f0",
-                    overflow: "hidden",
-                    width: "100%",
-                    boxSizing: "border-box"
+                🏪 店舗情報
+              </h2>
+              {isReadOnlySync ? (
+                <p
+                  style={{
+                    margin: "8px 0 0",
+                    fontSize: "13px",
+                    color: "#c05621"
                   }}>
-                    {/* 左侧：R-Login */}
-                    <div style={{ 
-                      display: "flex", 
-                      flexDirection: "column", 
-                      gap: "12px",
-                      padding: "20px",
-                      background: "rgba(235, 248, 255, 0.3)",
-                      boxSizing: "border-box"
-                    }}>
-                      <div style={{ 
-                        fontSize: "14px", 
-                        fontWeight: "700", 
-                        color: "#2b6cb0", 
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px"
-                      }}>
-                        <span style={{ fontSize: "16px" }}>🔵</span> R-Login (共通ID)
-                      </div>
-                      
-                      <div>
-                        <label style={{ fontSize: "12px", color: "#4a5568", fontWeight: "600", marginBottom: "4px", display: "block" }}>
-                          R-Login ID
-                        </label>
-                        <input
-                          type="text"
-                          value={shop.loginId}
-                          onChange={(e) => updateShop(i, "loginId", e.target.value)}
-                          placeholder="R-Login ID"
-                          style={{
-                            width: "100%",
-                            padding: "8px 10px",
-                            fontSize: "14px",
-                            border: "1px solid #cbd5e0",
-                            borderRadius: "4px",
-                            background: "white",
-                            boxSizing: "border-box"
-                          }}
-                        />
-                      </div>
-                      
-                      <div>
-                        <label style={{ fontSize: "12px", color: "#4a5568", fontWeight: "600", marginBottom: "4px", display: "block" }}>
-                          R-Login パスワード
-                        </label>
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          value={shop.loginPass}
-                          onChange={(e) => updateShop(i, "loginPass", e.target.value)}
-                          placeholder="パスワード"
-                          style={{
-                            width: "100%",
-                            padding: "8px 10px",
-                            fontSize: "14px",
-                            border: "1px solid #cbd5e0",
-                            borderRadius: "4px",
-                            background: "white",
-                            boxSizing: "border-box"
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* 中间分割线 */}
-                    <div style={{ background: "#e2e8f0", width: "1px" }}></div>
-
-                    {/* 右侧：楽天会員 */}
-                    <div style={{ 
-                      display: "flex", 
-                      flexDirection: "column", 
-                      gap: "12px",
-                      padding: "20px",
-                      background: "rgba(255, 245, 245, 0.3)",
-                      boxSizing: "border-box"
-                    }}>
-                      <div style={{ 
-                        fontSize: "14px", 
-                        fontWeight: "700", 
-                        color: "#c53030", 
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px"
-                      }}>
-                        <span style={{ fontSize: "16px" }}>🔴</span> 楽天会員 (個人ID)
-                      </div>
-                      
-                      <div>
-                        <label style={{ fontSize: "12px", color: "#4a5568", fontWeight: "600", marginBottom: "4px", display: "block" }}>
-                          楽天会員 ユーザID
-                        </label>
-                        <input
-                          type="text"
-                          value={shop.userId}
-                          onChange={(e) => updateShop(i, "userId", e.target.value)}
-                          placeholder="楽天会員ID"
-                          style={{
-                            width: "100%",
-                            padding: "8px 10px",
-                            fontSize: "14px",
-                            border: "1px solid #cbd5e0",
-                            borderRadius: "4px",
-                            background: "white",
-                            boxSizing: "border-box"
-                          }}
-                        />
-                      </div>
-                      
-                      <div>
-                        <label style={{ fontSize: "12px", color: "#4a5568", fontWeight: "600", marginBottom: "4px", display: "block" }}>
-                          楽天会員 パスワード
-                        </label>
-                        <input
-                          type="password"
-                          value={shop.userPass}
-                          onChange={(e) => updateShop(i, "userPass", e.target.value)}
-                          placeholder="パスワード"
-                          style={{
-                            width: "100%",
-                            padding: "8px 10px",
-                            fontSize: "14px",
-                            border: "1px solid #cbd5e0",
-                            borderRadius: "4px",
-                            background: "white",
-                            boxSizing: "border-box"
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                  同期オンのため、このエリアは読み取り専用です。
+                </p>
+              ) : null}
             </div>
-          ))}
-        </div>
-
-        {visibleCount < 20 ? (
-          <button
-            onClick={handleAddShop}
-            style={{
-              width: "100%",
-              padding: "16px",
-              marginTop: "16px",
-              background: "white",
-              border: "2px dashed #cbd5e0",
-              borderRadius: "10px",
-              color: "#4a5568",
-              fontSize: "15px",
-              fontWeight: "600",
-              cursor: "pointer",
-              transition: "all 0.2s",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px"
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "#007bff"
-              e.currentTarget.style.color = "#007bff"
-              e.currentTarget.style.background = "#f8fafc"
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "#cbd5e0"
-              e.currentTarget.style.color = "#4a5568"
-              e.currentTarget.style.background = "white"
-            }}>
-            ➕ 店舗を追加 ({20 - visibleCount}件まで追加可能)
-          </button>
-        ) : (
-          <div style={{
-            marginTop: "16px",
-            padding: "12px",
-            textAlign: "center",
-            color: "#718096",
-            fontSize: "13px",
-            background: "#f7fafc",
-            borderRadius: "8px",
-            border: "1px dashed #cbd5e0"
-          }}>
-            ⚠️ 最大件数（20件）に達しました
-          </div>
-        )}
-      </div>
-
-      {/* メルカリ 设置卡片 */}
-      <div style={{
-        background: "white",
-        borderRadius: "12px",
-        padding: "24px",
-        marginTop: "24px",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
-      }}>
-        <h2 style={{
-          fontSize: "18px",
-          fontWeight: "600",
-          color: "#2d3748",
-          marginBottom: "20px",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px"
-        }}>
-          🛒 メルカリ（入口リンク）
-        </h2>
-        <p style={{ fontSize: "13px", color: "#718096", marginBottom: "16px" }}>
-          メルカリは一度ログインすると永続的にログイン状態が保持されるため、入口リンクのみ設定できます。
-        </p>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          {mercariLinks.slice(0, visibleMercariCount).map((link, i) => (
-            <div key={i} style={{
-              background: link.name ? "#fff5f5" : "white",
-              border: link.name ? "2px solid #fed7d7" : "2px dashed #cbd5e0",
-              borderRadius: "10px",
-              padding: "16px",
-              display: "grid",
-              gridTemplateColumns: "40px 1fr 2fr",
-              gap: "12px",
-              alignItems: "center"
-            }}>
-              <div style={{
-                width: "32px",
-                height: "32px",
-                borderRadius: "6px",
-                background: link.name ? "#e53e3e" : "#e2e8f0",
-                color: "white",
+            <label
+              style={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
+                gap: "6px",
+                fontSize: "13px",
+                color: "#4a5568",
+                cursor: "pointer"
+              }}>
+              <input
+                type="checkbox"
+                checked={showPassword}
+                onChange={(event) => setShowPassword(event.target.checked)}
+              />
+              パスワードを表示
+            </label>
+          </div>
+
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            {visibleShops.map((shop, index) => (
+              <div
+                key={index}
+                style={{
+                  background: shop.shopName ? "#f8fafc" : "white",
+                  border: shop.shopName
+                    ? "2px solid #e2e8f0"
+                    : "2px dashed #cbd5e0",
+                  borderRadius: "10px",
+                  padding: "16px"
+                }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "40px minmax(0, 1fr)",
+                    gap: "16px",
+                    alignItems: "start"
+                  }}>
+                  <div
+                    style={{
+                      width: "32px",
+                      height: "32px",
+                      borderRadius: "6px",
+                      background: shop.shopName ? "#007bff" : "#e2e8f0",
+                      color: "white",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "14px",
+                      fontWeight: "600"
+                    }}>
+                    {index + 1}
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "16px",
+                      minWidth: 0
+                    }}>
+                    <div>
+                      <label style={smallLabelStyle}>店舗名</label>
+                      <input
+                        type="text"
+                        value={shop.shopName}
+                        onChange={(event) =>
+                          updateShop(index, "shopName", event.target.value)
+                        }
+                        placeholder="店舗名を入力"
+                        style={{
+                          ...inputStyle,
+                          fontSize: "16px",
+                          fontWeight: "500"
+                        }}
+                      />
+                    </div>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1px 1fr",
+                        background: "#fff",
+                        borderRadius: "8px",
+                        border: "1px solid #e2e8f0",
+                        overflow: "hidden"
+                      }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "12px",
+                          padding: "20px",
+                          background: "rgba(235, 248, 255, 0.3)"
+                        }}>
+                        <div
+                          style={{
+                            fontSize: "14px",
+                            fontWeight: "700",
+                            color: "#2b6cb0"
+                          }}>
+                          🔵 R-Login (共通ID)
+                        </div>
+                        <div>
+                          <label style={smallLabelStyle}>R-Login ID</label>
+                          <input
+                            type="text"
+                            value={shop.loginId}
+                            onChange={(event) =>
+                              updateShop(index, "loginId", event.target.value)
+                            }
+                            placeholder="R-Login ID"
+                            style={inputStyle}
+                          />
+                        </div>
+                        <div>
+                          <label style={smallLabelStyle}>
+                            R-Login パスワード
+                          </label>
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            value={shop.loginPass}
+                            onChange={(event) =>
+                              updateShop(index, "loginPass", event.target.value)
+                            }
+                            placeholder="パスワード"
+                            style={inputStyle}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ background: "#e2e8f0", width: "1px" }} />
+
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "12px",
+                          padding: "20px",
+                          background: "rgba(255, 245, 245, 0.3)"
+                        }}>
+                        <div
+                          style={{
+                            fontSize: "14px",
+                            fontWeight: "700",
+                            color: "#c53030"
+                          }}>
+                          🔴 楽天会員 (個人ID)
+                        </div>
+                        <div>
+                          <label style={smallLabelStyle}>
+                            楽天会員 ユーザID
+                          </label>
+                          <input
+                            type="text"
+                            value={shop.userId}
+                            onChange={(event) =>
+                              updateShop(index, "userId", event.target.value)
+                            }
+                            placeholder="楽天会員ID"
+                            style={inputStyle}
+                          />
+                        </div>
+                        <div>
+                          <label style={smallLabelStyle}>
+                            楽天会員 パスワード
+                          </label>
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            value={shop.userPass}
+                            onChange={(event) =>
+                              updateShop(index, "userPass", event.target.value)
+                            }
+                            placeholder="パスワード"
+                            style={inputStyle}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {visibleCount < 20 ? (
+            <button
+              onClick={() => setVisibleCount((current) => current + 1)}
+              style={{
+                width: "100%",
+                padding: "16px",
+                marginTop: "16px",
+                background: "white",
+                border: "2px dashed #cbd5e0",
+                borderRadius: "10px",
+                color: "#4a5568",
+                fontSize: "15px",
+                fontWeight: "600",
+                cursor: "pointer"
+              }}>
+              ➕ 店舗を追加 ({20 - visibleCount}件まで追加可能)
+            </button>
+          ) : (
+            <div
+              style={{
+                marginTop: "16px",
+                padding: "12px",
+                textAlign: "center",
+                color: "#718096",
+                fontSize: "13px",
+                background: "#f7fafc",
+                borderRadius: "8px",
+                border: "1px dashed #cbd5e0"
+              }}>
+              ⚠️ 最大件数（20件）に達しました
+            </div>
+          )}
+        </div>
+
+        <div style={{ ...cardStyle, marginTop: "24px" }}>
+          <h2
+            style={{
+              fontSize: "18px",
+              fontWeight: "600",
+              color: "#2d3748",
+              marginBottom: "20px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px"
+            }}>
+            🛒 メルカリ（入口リンク）
+          </h2>
+          <p
+            style={{
+              fontSize: "13px",
+              color: "#718096",
+              marginBottom: "16px"
+            }}>
+            メルカリは入口リンクのみ保存します。
+          </p>
+
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {visibleMercariLinks.map((link, index) => (
+              <div
+                key={index}
+                style={{
+                  background: link.name ? "#fff5f5" : "white",
+                  border: link.name
+                    ? "2px solid #fed7d7"
+                    : "2px dashed #cbd5e0",
+                  borderRadius: "10px",
+                  padding: "16px",
+                  display: "grid",
+                  gridTemplateColumns: "40px 1fr 2fr",
+                  gap: "12px",
+                  alignItems: "center"
+                }}>
+                <div
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "6px",
+                    background: link.name ? "#e53e3e" : "#e2e8f0",
+                    color: "white",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "14px",
+                    fontWeight: "600"
+                  }}>
+                  {index + 1}
+                </div>
+                <input
+                  type="text"
+                  value={link.name}
+                  onChange={(event) =>
+                    updateMercariLink(index, "name", event.target.value)
+                  }
+                  placeholder="店舗名"
+                  style={inputStyle}
+                />
+                <input
+                  type="url"
+                  value={link.url}
+                  onChange={(event) =>
+                    updateMercariLink(index, "url", event.target.value)
+                  }
+                  placeholder="https://mercari-shops.com/..."
+                  style={inputStyle}
+                />
+              </div>
+            ))}
+          </div>
+
+          {visibleMercariCount < 5 ? (
+            <button
+              onClick={() => setVisibleMercariCount((current) => current + 1)}
+              style={{
+                width: "100%",
+                padding: "12px",
+                marginTop: "12px",
+                background: "white",
+                border: "2px dashed #cbd5e0",
+                borderRadius: "8px",
+                color: "#4a5568",
                 fontSize: "14px",
-                fontWeight: "600"
+                fontWeight: "600",
+                cursor: "pointer"
               }}>
-                {i + 1}
-              </div>
-              <input
-                type="text"
-                value={link.name}
-                onChange={(e) => updateMercariLink(i, "name", e.target.value)}
-                placeholder="店舗名"
+              ➕ メルカリ店舗を追加 ({5 - visibleMercariCount}件まで追加可能)
+            </button>
+          ) : null}
+        </div>
+
+        <div style={{ ...cardStyle, marginTop: "24px" }}>
+          <h2
+            style={{
+              fontSize: "18px",
+              fontWeight: "600",
+              color: "#2d3748",
+              marginBottom: "20px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px"
+            }}>
+            🟠 auPay Market（自動ログイン）
+          </h2>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {visibleAupayShops.map((shop, index) => (
+              <div
+                key={index}
                 style={{
-                  padding: "10px 12px",
-                  fontSize: "14px",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "6px",
-                  outline: "none",
-                  boxSizing: "border-box"
-                }}
-              />
-              <input
-                type="url"
-                value={link.url}
-                onChange={(e) => updateMercariLink(i, "url", e.target.value)}
-                placeholder="https://mercari-shops.com/..."
+                  background: shop.name ? "#fffaf0" : "white",
+                  border: shop.name
+                    ? "2px solid #fbd38d"
+                    : "2px dashed #cbd5e0",
+                  borderRadius: "10px",
+                  padding: "16px"
+                }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "40px 1fr 1fr 1fr",
+                    gap: "12px",
+                    alignItems: "center"
+                  }}>
+                  <div
+                    style={{
+                      width: "32px",
+                      height: "32px",
+                      borderRadius: "6px",
+                      background: shop.name ? "#ed8936" : "#e2e8f0",
+                      color: "white",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "14px",
+                      fontWeight: "600"
+                    }}>
+                    {index + 1}
+                  </div>
+                  <input
+                    type="text"
+                    value={shop.name}
+                    onChange={(event) =>
+                      updateAupayShop(index, "name", event.target.value)
+                    }
+                    placeholder="店舗名"
+                    style={inputStyle}
+                  />
+                  <input
+                    type="text"
+                    value={shop.loginId}
+                    onChange={(event) =>
+                      updateAupayShop(index, "loginId", event.target.value)
+                    }
+                    placeholder="ログインID"
+                    style={inputStyle}
+                  />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={shop.password}
+                    onChange={(event) =>
+                      updateAupayShop(index, "password", event.target.value)
+                    }
+                    placeholder="パスワード"
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {visibleAupayCount < 5 ? (
+            <button
+              onClick={() => setVisibleAupayCount((current) => current + 1)}
+              style={{
+                width: "100%",
+                padding: "12px",
+                marginTop: "12px",
+                background: "white",
+                border: "2px dashed #cbd5e0",
+                borderRadius: "8px",
+                color: "#4a5568",
+                fontSize: "14px",
+                fontWeight: "600",
+                cursor: "pointer"
+              }}>
+              ➕ auPay店舗を追加 ({5 - visibleAupayCount}件まで追加可能)
+            </button>
+          ) : null}
+        </div>
+
+        <div style={{ ...cardStyle, marginTop: "24px" }}>
+          <h2
+            style={{
+              fontSize: "18px",
+              fontWeight: "600",
+              color: "#2d3748",
+              marginBottom: "20px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px"
+            }}>
+            🟧 TEMU（自動ログイン）
+          </h2>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {visibleTemuShops.map((shop, index) => (
+              <div
+                key={index}
                 style={{
-                  padding: "10px 12px",
-                  fontSize: "14px",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "6px",
-                  outline: "none",
-                  boxSizing: "border-box"
-                }}
-              />
-            </div>
-          ))}
-        </div>
-
-        {visibleMercariCount < 5 && (
-          <button
-            onClick={handleAddMercari}
-            style={{
-              width: "100%",
-              padding: "12px",
-              marginTop: "12px",
-              background: "white",
-              border: "2px dashed #cbd5e0",
-              borderRadius: "8px",
-              color: "#4a5568",
-              fontSize: "14px",
-              fontWeight: "600",
-              cursor: "pointer",
-              transition: "all 0.2s"
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "#e53e3e"
-              e.currentTarget.style.color = "#e53e3e"
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "#cbd5e0"
-              e.currentTarget.style.color = "#4a5568"
-            }}>
-            ➕ メルカリ店舗を追加 ({5 - visibleMercariCount}件まで追加可能)
-          </button>
-        )}
-      </div>
-
-      {/* auPay Market 设置卡片 */}
-      <div style={{
-        background: "white",
-        borderRadius: "12px",
-        padding: "24px",
-        marginTop: "24px",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
-      }}>
-        <h2 style={{
-          fontSize: "18px",
-          fontWeight: "600",
-          color: "#2d3748",
-          marginBottom: "20px",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px"
-        }}>
-          🟠 auPay Market（自動ログイン）
-        </h2>
-        <p style={{ fontSize: "13px", color: "#718096", marginBottom: "16px" }}>
-          auPay Market は一組のログインID・パスワードで自動ログインします。
-        </p>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          {aupayShops.slice(0, visibleAupayCount).map((shop, i) => (
-            <div key={i} style={{
-              background: shop.name ? "#fffaf0" : "white",
-              border: shop.name ? "2px solid #fbd38d" : "2px dashed #cbd5e0",
-              borderRadius: "10px",
-              padding: "16px"
-            }}>
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "40px 1fr 1fr 1fr",
-                gap: "12px",
-                alignItems: "center"
-              }}>
-                <div style={{
-                  width: "32px",
-                  height: "32px",
-                  borderRadius: "6px",
-                  background: shop.name ? "#ed8936" : "#e2e8f0",
-                  color: "white",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "14px",
-                  fontWeight: "600"
+                  background: shop.name ? "#fffbeb" : "white",
+                  border: shop.name
+                    ? "2px solid #f6ad55"
+                    : "2px dashed #cbd5e0",
+                  borderRadius: "10px",
+                  padding: "16px"
                 }}>
-                  {i + 1}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "40px 1fr 1fr 1fr",
+                    gap: "12px",
+                    alignItems: "center"
+                  }}>
+                  <div
+                    style={{
+                      width: "32px",
+                      height: "32px",
+                      borderRadius: "6px",
+                      background: shop.name ? "#dd6b20" : "#e2e8f0",
+                      color: "white",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "14px",
+                      fontWeight: "600"
+                    }}>
+                    {index + 1}
+                  </div>
+                  <input
+                    type="text"
+                    value={shop.name}
+                    onChange={(event) =>
+                      updateTemuShop(index, "name", event.target.value)
+                    }
+                    placeholder="店舗名"
+                    style={inputStyle}
+                  />
+                  <input
+                    type="text"
+                    value={shop.phone}
+                    onChange={(event) =>
+                      updateTemuShop(index, "phone", event.target.value)
+                    }
+                    placeholder="手机号"
+                    style={inputStyle}
+                  />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={shop.password}
+                    onChange={(event) =>
+                      updateTemuShop(index, "password", event.target.value)
+                    }
+                    placeholder="パスワード"
+                    style={inputStyle}
+                  />
                 </div>
-                <input
-                  type="text"
-                  value={shop.name}
-                  onChange={(e) => updateAupayShop(i, "name", e.target.value)}
-                  placeholder="店舗名"
-                  style={{
-                    padding: "10px 12px",
-                    fontSize: "14px",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "6px",
-                    outline: "none",
-                    boxSizing: "border-box"
-                  }}
-                />
-                <input
-                  type="text"
-                  value={shop.loginId}
-                  onChange={(e) => updateAupayShop(i, "loginId", e.target.value)}
-                  placeholder="ログインID（メールアドレス）"
-                  style={{
-                    padding: "10px 12px",
-                    fontSize: "14px",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "6px",
-                    outline: "none",
-                    boxSizing: "border-box"
-                  }}
-                />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={shop.password}
-                  onChange={(e) => updateAupayShop(i, "password", e.target.value)}
-                  placeholder="パスワード"
-                  style={{
-                    padding: "10px 12px",
-                    fontSize: "14px",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "6px",
-                    outline: "none",
-                    boxSizing: "border-box"
-                  }}
-                />
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
 
-        {visibleAupayCount < 5 && (
-          <button
-            onClick={handleAddAupay}
-            style={{
-              width: "100%",
-              padding: "12px",
-              marginTop: "12px",
-              background: "white",
-              border: "2px dashed #cbd5e0",
-              borderRadius: "8px",
-              color: "#4a5568",
-              fontSize: "14px",
-              fontWeight: "600",
-              cursor: "pointer",
-              transition: "all 0.2s"
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "#ed8936"
-              e.currentTarget.style.color = "#ed8936"
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "#cbd5e0"
-              e.currentTarget.style.color = "#4a5568"
-            }}>
-            ➕ auPay店舗を追加 ({5 - visibleAupayCount}件まで追加可能)
-          </button>
-        )}
-      </div>
-
-      {/* TEMU 设置卡片 */}
-      <div style={{
-        background: "white",
-        borderRadius: "12px",
-        padding: "24px",
-        marginTop: "24px",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
-      }}>
-        <h2 style={{
-          fontSize: "18px",
-          fontWeight: "600",
-          color: "#2d3748",
-          marginBottom: "20px",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px"
-        }}>
-          🟧 TEMU（自動ログイン）
-        </h2>
-        <p style={{ fontSize: "13px", color: "#718096", marginBottom: "16px" }}>
-          TEMU は手机号・パスワードで自動ログインします。
-        </p>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          {temuShops.slice(0, visibleTemuCount).map((shop, i) => (
-            <div key={i} style={{
-              background: shop.name ? "#fffbeb" : "white",
-              border: shop.name ? "2px solid #f6ad55" : "2px dashed #cbd5e0",
-              borderRadius: "10px",
-              padding: "16px"
-            }}>
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "40px 1fr 1fr 1fr",
-                gap: "12px",
-                alignItems: "center"
+          {visibleTemuCount < 5 ? (
+            <button
+              onClick={() => setVisibleTemuCount((current) => current + 1)}
+              style={{
+                width: "100%",
+                padding: "12px",
+                marginTop: "12px",
+                background: "white",
+                border: "2px dashed #cbd5e0",
+                borderRadius: "8px",
+                color: "#4a5568",
+                fontSize: "14px",
+                fontWeight: "600",
+                cursor: "pointer"
               }}>
-                <div style={{
-                  width: "32px",
-                  height: "32px",
-                  borderRadius: "6px",
-                  background: shop.name ? "#dd6b20" : "#e2e8f0",
-                  color: "white",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "14px",
-                  fontWeight: "600"
-                }}>
-                  {i + 1}
-                </div>
-                <input
-                  type="text"
-                  value={shop.name}
-                  onChange={(e) => updateTemuShop(i, "name", e.target.value)}
-                  placeholder="店舗名"
-                  style={{
-                    padding: "10px 12px",
-                    fontSize: "14px",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "6px",
-                    outline: "none",
-                    boxSizing: "border-box"
-                  }}
-                />
-                <input
-                  type="text"
-                  value={shop.phone}
-                  onChange={(e) => updateTemuShop(i, "phone", e.target.value)}
-                  placeholder="手机号"
-                  style={{
-                    padding: "10px 12px",
-                    fontSize: "14px",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "6px",
-                    outline: "none",
-                    boxSizing: "border-box"
-                  }}
-                />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={shop.password}
-                  onChange={(e) => updateTemuShop(i, "password", e.target.value)}
-                  placeholder="パスワード"
-                  style={{
-                    padding: "10px 12px",
-                    fontSize: "14px",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "6px",
-                    outline: "none",
-                    boxSizing: "border-box"
-                  }}
-                />
-              </div>
-            </div>
-          ))}
+              ➕ TEMU店舗を追加 ({5 - visibleTemuCount}件まで追加可能)
+            </button>
+          ) : null}
         </div>
+      </fieldset>
 
-        {visibleTemuCount < 5 && (
-          <button
-            onClick={handleAddTemu}
-            style={{
-              width: "100%",
-              padding: "12px",
-              marginTop: "12px",
-              background: "white",
-              border: "2px dashed #cbd5e0",
-              borderRadius: "8px",
-              color: "#4a5568",
-              fontSize: "14px",
-              fontWeight: "600",
-              cursor: "pointer",
-              transition: "all 0.2s"
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "#dd6b20"
-              e.currentTarget.style.color = "#dd6b20"
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "#cbd5e0"
-              e.currentTarget.style.color = "#4a5568"
-            }}>
-            ➕ TEMU店舗を追加 ({5 - visibleTemuCount}件まで追加可能)
-          </button>
-        )}
-      </div>
-
-      {/* 隐藏的文件输入 */}
       <input
         ref={fileInputRef}
         type="file"
@@ -1383,17 +1553,19 @@ function OptionsPage() {
         style={{ display: "none" }}
       />
 
-      {/* 底部提示 */}
-      <div style={{
-        marginTop: "24px",
-        padding: "16px",
-        background: "#fff3cd",
-        border: "1px solid #ffc107",
-        borderRadius: "8px",
-        fontSize: "13px",
-        color: "#856404"
-      }}>
-        ⚠️ <strong>注意:</strong> データ削除ボタンはすべての設定を消去します。必要に応じて先にエクスポートしてください。
+      <div
+        style={{
+          marginTop: "24px",
+          padding: "16px",
+          background: "#fff3cd",
+          border: "1px solid #ffc107",
+          borderRadius: "8px",
+          fontSize: "13px",
+          color: "#856404"
+        }}>
+        ⚠️ <strong>注意:</strong>{" "}
+        遠端同期オン時は、この端末のデータはキャッシュ扱いです。共有設定を変える場合は、内網
+        JSON の内容を更新してください。
       </div>
     </div>
   )

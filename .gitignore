@@ -6,3 +6,4 @@ rms-auto-old
 ._*
 D:
 *.csv
+.playwright-mcp

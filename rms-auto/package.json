@@ -28,8 +28,14 @@
     "typescript": "5.3.3"
   },
   "manifest": {
-    "permissions": ["storage", "clipboardRead", "clipboardWrite"],
+    "permissions": [
+      "storage",
+      "clipboardRead",
+      "clipboardWrite"
+    ],
     "host_permissions": [
+      "http://*/*",
+      "https://*/*",
       "https://glogin.rms.rakuten.co.jp/*",
       "https://login.account.rakuten.com/*",
       "https://mainmenu.rms.rakuten.co.jp/*",
