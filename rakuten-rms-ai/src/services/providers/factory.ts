@@ -24,6 +24,7 @@ export class ModelFactory {
           baseURL: settings.openaiBaseUrl,
           maxOutputTokens: settings.openaiMaxOutputTokens,
           reasoningEffort: settings.openaiReasoningEffort,
+          verbosity: settings.openaiVerbosity,
           apiMode: settings.openaiApiMode || "responses",
           temperature: 0.7,
         }

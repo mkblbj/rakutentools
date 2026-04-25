@@ -1,11 +1,11 @@
 import OpenAI from "openai"
-import type { LLMProvider, ProviderConfig, StreamChunk } from "~types"
+import type { LLMProvider, OpenAIReasoningEffort, ProviderConfig, StreamChunk } from "~types"
 
 export class OpenAIProvider implements LLMProvider {
   private client: OpenAI
   private model: string
   private maxOutputTokens: number
-  private reasoningEffort: "low" | "medium" | "high"
+  private reasoningEffort: OpenAIReasoningEffort
   private temperature: number
   private apiMode: "responses" | "chat"
 
@@ -31,7 +31,7 @@ export class OpenAIProvider implements LLMProvider {
     )
   }
 
-  private getEffectiveEffort(): "low" | "medium" | "high" {
+  private getEffectiveEffort(): OpenAIReasoningEffort {
     if (this.model.toLowerCase().includes("grok-3-mini") && this.reasoningEffort === "medium") {
       return "high"
     }

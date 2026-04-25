@@ -2,6 +2,9 @@ export type ProviderType = "openai" | "gemini"
 
 export type Language = "ja" | "zh" | "en"
 
+export type OpenAIReasoningEffort = "low" | "medium" | "high" | "xhigh"
+export type OpenAIVerbosity = "low" | "medium" | "high"
+
 export interface UserSettings {
   provider: ProviderType
   language: Language
@@ -10,7 +13,8 @@ export interface UserSettings {
   openaiModel?: string
   openaiBaseUrl?: string
   openaiMaxOutputTokens?: number
-  openaiReasoningEffort?: "low" | "medium" | "high"
+  openaiReasoningEffort?: OpenAIReasoningEffort
+  openaiVerbosity?: OpenAIVerbosity
   openaiApiMode?: "responses" | "chat"
   // Gemini
   geminiKey?: string
@@ -54,7 +58,8 @@ export interface ProviderConfig {
   model?: string
   maxOutputTokens?: number
   baseURL?: string
-  reasoningEffort?: "low" | "medium" | "high"
+  reasoningEffort?: OpenAIReasoningEffort
+  verbosity?: OpenAIVerbosity
   thinkingBudget?: number
   temperature?: number
   apiMode?: "responses" | "chat"

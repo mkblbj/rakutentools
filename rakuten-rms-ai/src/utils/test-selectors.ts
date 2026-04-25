@@ -3,7 +3,7 @@
  * 用于在浏览器控制台中测试选择器是否正确
  */
 
-import { extractAllReviews, extractReviewData, REVIEW_SELECTORS } from './dom-selectors'
+import { extractAllReviews, extractReviewData, injectUOAIButton, REVIEW_SELECTORS, type ReviewData } from './dom-selectors'
 
 /**
  * 测试 Review 页面的数据提取
@@ -112,10 +112,9 @@ export function testButtonInjection() {
   }
   
   // 为第一条评价注入按钮
-  const firstReview = reviews[0]
-  const { injectUOAIButton } = require('./dom-selectors')
+  const firstReview = reviews[0]!
   
-  const button = injectUOAIButton(firstReview.container, (reviewData) => {
+  const button = injectUOAIButton(firstReview.container, (reviewData: ReviewData) => {
     console.log('🎯 評価返信AI按钮被点击！')
     console.log('评价数据:', reviewData)
     alert(`評価返信AI按钮点击测试成功！\n\n评价内容：${reviewData.reviewContent.substring(0, 100)}...`)
@@ -130,7 +129,6 @@ export function testButtonInjection() {
 
 // 导出到全局供浏览器控制台使用
 if (typeof window !== 'undefined') {
-  (window as any).testReviewExtraction = testReviewExtraction
-  (window as any).testButtonInjection = testButtonInjection
+  ;(window as any).testReviewExtraction = testReviewExtraction
+  ;(window as any).testButtonInjection = testButtonInjection
 }
-
