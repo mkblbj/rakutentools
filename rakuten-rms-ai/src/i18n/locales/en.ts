@@ -16,7 +16,11 @@ const en: TranslationDict = {
   "options.setDefault": "Set as Default",
   "options.tokenBudgetNoteLabel": "Token Budget Note",
   "options.tokenBudgetNote":
-    '"Visible Output Tokens" only controls reply length. Thinking tokens are controlled by a separate parameter and do not compete with each other.',
+    "Token budget semantics differ by provider. Check the note on the active provider page.",
+  "options.openaiTokenBudgetNote":
+    "OpenAI Responses max_output_tokens is a total output cap, including visible reply tokens and reasoning tokens. Reply length is mainly controlled by Prompt and Verbosity.",
+  "options.geminiTokenBudgetNote":
+    "For Gemini, this extension separates visible output and thinkingBudget, then combines them into API maxOutputTokens.",
   "options.apiKey": "API Key",
   "options.apiKeyFromOpenai": "Get from OpenAI Platform",
   "options.apiKeyFromGemini": "Get from Google AI Studio",
@@ -32,12 +36,20 @@ const en: TranslationDict = {
   "options.fetchModelsFail": "Failed to fetch models",
   "options.enterApiKeyFirst": "Please enter {provider} API Key first",
   "options.visibleOutputTokens": "Visible Output Tokens",
-  "options.reasoningEffort": "Reasoning Effort",
-  "options.reasoningLow": "low (save tokens)",
-  "options.reasoningMedium": "medium",
-  "options.reasoningHigh": "high (deep thinking)",
+  "options.openaiMaxOutputTokens": "Total Output Token Cap (max_output_tokens)",
+  "options.reasoningEffort": "Reasoning Effort (reasoning.effort)",
+  "options.reasoningLow": "low (faster, fewer tokens)",
+  "options.reasoningMedium": "medium (recommended)",
+  "options.reasoningHigh": "high (deeper reasoning)",
+  "options.reasoningXHigh": "xhigh (deepest reasoning)",
   "options.reasoningNote":
-    "Thinking tokens don't consume the output budget. Only effective for reasoning models; others will automatically ignore this.",
+    "Only applies to reasoning models such as GPT-5 and o-series. GPT-5.5 defaults to medium; higher effort increases latency and token usage.",
+  "options.openaiVerbosity": "Output Verbosity (text.verbosity)",
+  "options.verbosityLow": "low (shorter)",
+  "options.verbosityMedium": "medium (recommended)",
+  "options.verbosityHigh": "high (more detailed)",
+  "options.verbosityNote":
+    "Controls GPT-5 family final-answer verbosity, not a guaranteed character count. Use medium for review replies and low if replies are too long.",
   "options.apiMode": "API Mode",
   "options.apiModeResponses": "Responses API (Recommended)",
   "options.apiModeChat": "Chat Completions (Compatible)",

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import "./style.css"
-import type { UserSettings } from "~types"
+import type { OpenAIReasoningEffort, OpenAIVerbosity, UserSettings } from "~types"
 import { StorageService, DEFAULT_REVIEW_PROMPT } from "~services"
 import { I18nProvider, useI18n, LANGUAGES } from "~i18n"
 
@@ -14,7 +14,8 @@ function OptionsIndex() {
     openaiModel: "",
     openaiBaseUrl: "https://api.openai.com/v1",
     openaiMaxOutputTokens: 2048,
-    openaiReasoningEffort: "low",
+    openaiReasoningEffort: "medium",
+    openaiVerbosity: "medium",
     openaiApiMode: "responses",
     geminiKey: "",
     geminiModel: "",
@@ -203,7 +204,8 @@ function OptionsIndex() {
           )}
         </div>
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 leading-relaxed">
-          <strong>{t("options.tokenBudgetNoteLabel")}:</strong> {t("options.tokenBudgetNote")}
+          <strong>{t("options.tokenBudgetNoteLabel")}:</strong>{" "}
+          {provider === "openai" ? t("options.openaiTokenBudgetNote") : t("options.geminiTokenBudgetNote")}
         </div>
         {provider === "openai" ? renderOpenAISection() : renderGeminiSection()}
       </div>
@@ -238,19 +240,35 @@ function OptionsIndex() {
         {renderModelSelector("openai", openaiModels, settings.openaiModel || "", (v) => setSettings({ ...settings, openaiModel: v }))}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{t("options.visibleOutputTokens")}: <span className="font-bold text-gray-900">{settings.openaiMaxOutputTokens ?? 2048}</span></label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            {t("options.openaiMaxOutputTokens")}: <span className="font-bold text-gray-900">{settings.openaiMaxOutputTokens ?? 2048}</span>
+          </label>
           <input type="range" min={512} max={8192} step={256} value={settings.openaiMaxOutputTokens ?? 2048} onChange={(e) => setSettings({ ...settings, openaiMaxOutputTokens: Number(e.target.value) })} className="w-full" />
           <div className="flex justify-between text-xs text-gray-400 mt-1"><span>512</span><span>8192</span></div>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">{t("options.reasoningEffort")}</label>
-          <select value={settings.openaiReasoningEffort || "low"} onChange={(e) => setSettings({ ...settings, openaiReasoningEffort: e.target.value as "low" | "medium" | "high" })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+          <select value={settings.openaiReasoningEffort || "medium"} onChange={(e) => setSettings({ ...settings, openaiReasoningEffort: e.target.value as OpenAIReasoningEffort })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
             <option value="low">{t("options.reasoningLow")}</option>
             <option value="medium">{t("options.reasoningMedium")}</option>
             <option value="high">{t("options.reasoningHigh")}</option>
+            <option value="xhigh">{t("options.reasoningXHigh")}</option>
           </select>
           <p className="mt-1 text-xs text-gray-500">{t("options.reasoningNote")}</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t("options.openaiVerbosity")}</label>
+          <select
+            value={settings.openaiVerbosity || "medium"}
+            onChange={(e) => setSettings({ ...settings, openaiVerbosity: e.target.value as OpenAIVerbosity })}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <option value="low">{t("options.verbosityLow")}</option>
+            <option value="medium">{t("options.verbosityMedium")}</option>
+            <option value="high">{t("options.verbosityHigh")}</option>
+          </select>
+          <p className="mt-1 text-xs text-gray-500">{t("options.verbosityNote")}</p>
         </div>
 
         <div className="pt-3 border-t border-gray-200">
