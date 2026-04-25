@@ -280,7 +280,7 @@ function buildPrompt(template: string, context: ReviewContext, seasonal?: Season
 }
 
 const REVIEW_USER_INSTRUCTION =
-  "上記のルールに厳密に従い、400〜600文字の返信文のみを出力してください。文字数カウント・メモ・補足説明は一切付けないでください。"
+  "上記のルールに厳密に従い、通常は450〜550文字、レビュー情報が少ない場合のみ320〜450文字の返信文のみを出力してください。文字数カウント・メモ・補足説明は一切付けないでください。"
 
 function buildReviewMessages(prompt: string): Array<{ role: string; content: string }> {
   return [
