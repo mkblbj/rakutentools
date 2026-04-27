@@ -43,7 +43,11 @@ interface SeasonalEventWindow extends SeasonalEvent {
   postDays: number
   preLabel?: string
   postLabel?: string
+  preGreeting?: string
+  postGreeting?: string
 }
+
+type SeasonalEventPhase = "pre" | "during" | "post"
 
 const FIXED_HOLIDAYS: FixedHoliday[] = [
   { month: 1, day: 1, name: "元日" },
@@ -75,6 +79,7 @@ const SEASONAL_EVENTS: SeasonalEventWindow[] = [
     greeting: "年末のお忙しい時期に、当店をご利用いただきありがとうございます",
     preDays: 3,
     postDays: 0,
+    preGreeting: "年末を前にお忙しいなか、当店をご利用いただきありがとうございます",
   },
   {
     startMonth: 1,
@@ -85,6 +90,7 @@ const SEASONAL_EVENTS: SeasonalEventWindow[] = [
     greeting: "新しい年のはじまりに、当店をご利用いただきありがとうございます",
     preDays: 0,
     postDays: 4,
+    postGreeting: "年始明けのお忙しいなか、当店をご利用いただきありがとうございます",
   },
   {
     startMonth: 4,
@@ -97,6 +103,8 @@ const SEASONAL_EVENTS: SeasonalEventWindow[] = [
     postDays: 1,
     preLabel: "ゴールデンウィーク前",
     postLabel: "ゴールデンウィーク明け",
+    preGreeting: "大型連休を前に、当店をご利用いただきありがとうございます",
+    postGreeting: "大型連休明けのお忙しいなか、当店をご利用いただきありがとうございます",
   },
   {
     startMonth: 8,
@@ -107,6 +115,8 @@ const SEASONAL_EVENTS: SeasonalEventWindow[] = [
     greeting: "お盆の時期に、当店をご利用いただきありがとうございます",
     preDays: 2,
     postDays: 1,
+    preGreeting: "お盆を前に、当店をご利用いただきありがとうございます",
+    postGreeting: "お盆明けのお忙しいなか、当店をご利用いただきありがとうございます",
   },
   {
     startMonth: 12,
@@ -117,6 +127,8 @@ const SEASONAL_EVENTS: SeasonalEventWindow[] = [
     greeting: "クリスマスの季節に、当店をご利用いただきありがとうございます",
     preDays: 5,
     postDays: 1,
+    preGreeting: "クリスマスを前に、当店をご利用いただきありがとうございます",
+    postGreeting: "クリスマス明けのお忙しいなか、当店をご利用いただきありがとうございます",
   },
 ]
 
@@ -231,7 +243,11 @@ function pickByDate<T>(arr: T[], month: number, day: number): T {
   return arr[(month * day) % arr.length]
 }
 
-function getSeasonalEvent(year: number, month: number, day: number): { event: SeasonalEventWindow; label: string } | null {
+function getSeasonalEvent(
+  year: number,
+  month: number,
+  day: number,
+): { event: SeasonalEventWindow; label: string; phase: SeasonalEventPhase } | null {
   const currentDate = toUtcDate(year, month, day)
   const current = dateToMonthDayNumber(currentDate)
 
@@ -242,23 +258,32 @@ function getSeasonalEvent(year: number, month: number, day: number): { event: Se
     const end = event.endMonth * 100 + event.endDay
 
     if (isWithinMonthDayRange(current, start, end)) {
-      return { event, label: event.name }
+      return { event, label: event.name, phase: "during" }
     }
 
     for (let offset = 1; offset <= event.preDays; offset++) {
       if (dateToMonthDayNumber(addDays(startDate, -offset)) === current) {
-        return { event, label: event.preLabel || `${event.name}前` }
+        return { event, label: event.preLabel || `${event.name}前`, phase: "pre" }
       }
     }
 
     for (let offset = 1; offset <= event.postDays; offset++) {
       if (dateToMonthDayNumber(addDays(endDate, offset)) === current) {
-        return { event, label: event.postLabel || `${event.name}明け` }
+        return { event, label: event.postLabel || `${event.name}明け`, phase: "post" }
       }
     }
   }
 
   return null
+}
+
+function getSeasonalEventGreeting(seasonalEvent: {
+  event: SeasonalEventWindow
+  phase: SeasonalEventPhase
+}): string {
+  if (seasonalEvent.phase === "pre") return seasonalEvent.event.preGreeting || seasonalEvent.event.greeting
+  if (seasonalEvent.phase === "post") return seasonalEvent.event.postGreeting || seasonalEvent.event.greeting
+  return seasonalEvent.event.greeting
 }
 
 export function getSeasonalContextForDate(date: Date): SeasonalContext {
@@ -290,10 +315,10 @@ export function getSeasonalContextForDate(date: Date): SeasonalContext {
   } else if (seasonalEvent) {
     holidayLabel = seasonalEvent.label
     dayTypeLabel = dayOfWeek === 0 || dayOfWeek === 6 ? "週末" : "平日"
-    seasonalGreeting = seasonalEvent.event.greeting
+    seasonalGreeting = getSeasonalEventGreeting(seasonalEvent)
     mentionType = "event"
     mentionLabel = seasonalEvent.event.name
-    recommendedMention = seasonalEvent.event.greeting
+    recommendedMention = seasonalGreeting
   }
 
   return {

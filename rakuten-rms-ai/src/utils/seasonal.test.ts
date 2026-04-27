@@ -24,6 +24,8 @@ describe("seasonal context v2", () => {
     expect(context.mentionType).toBe("event")
     expect(context.mentionLabel).toBe("ゴールデンウィーク")
     expect(context.recommendedMention).toContain("大型連休")
+    expect(context.recommendedMention).toContain("前")
+    expect(context.recommendedMention).not.toContain("時期に")
     expect(context.shouldUseInReply).toBe(true)
   })
 
