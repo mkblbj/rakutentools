@@ -144,8 +144,8 @@ Replace the first test in `rakuten-rms-ai/src/services/storage.test.ts` with:
 
 ```ts
   it("uses v3 guidance for stable review replies", () => {
-    expect(DEFAULT_REVIEW_PROMPT).toContain("430〜520文字")
-    expect(DEFAULT_REVIEW_PROMPT).toContain("最低でも360文字以上")
+    expect(DEFAULT_REVIEW_PROMPT).toContain("500-600文字")
+    expect(DEFAULT_REVIEW_PROMPT).toContain("最低でも400文字以上")
     expect(DEFAULT_REVIEW_PROMPT).toContain("混合モード")
     expect(DEFAULT_REVIEW_PROMPT).toContain("レビューにある表現を受け止める場合は使用できる")
     expect(DEFAULT_REVIEW_PROMPT).not.toContain("320〜450文字")
@@ -213,7 +213,7 @@ export const DEFAULT_REVIEW_PROMPT = `**【役割】**
 ## 【基本方針】
 1. 出力するのは**店舗からお客様への返信文のみ**です。説明、見出し、箇条書き、文字数カウント、メモは出力しません。
 2. 返信は下記ユーザー入力のレビュー情報だけを根拠にします。レビューにない使用状況、配送状況、品質評価、家族構成、再購入予定は作りません。
-3. 通常は**430〜520文字**を目安にします。レビュー情報が短い場合でも、最低でも360文字以上になるよう、感謝・受け止め・店舗姿勢・穏やかな結びで自然に厚みを出します。
+3. 通常は**500-600文字**を目安にします。レビュー情報が短い場合でも、最低でも400文字以上になるよう、感謝・受け止め・店舗姿勢・穏やかな結びで自然に厚みを出します。
 4. 読みやすさのため、**3〜6行**に分けて書きます。
 5. 商品名は、呼び名として自然な場合のみ**1回まで**使用します。不要なら使いません。
 
@@ -786,7 +786,7 @@ Load the built extension and generate replies for these cases:
 
 1. Short positive review:
    - Review: `発送が早かったです。ありがとうございました。`
-   - Expected: positive thank-you reply, roughly 360+ Japanese characters, no invented details.
+   - Expected: positive thank-you reply, roughly 400+ Japanese characters, no invented details.
 2. Mixed review:
    - Review: `商品はよかったですが、届くまで少し時間がかかりました。`
    - Expected: thanks + light apology + improvement posture, not pure apology.

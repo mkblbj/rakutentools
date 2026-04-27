@@ -8,8 +8,8 @@ import {
 
 describe("review prompt defaults", () => {
   it("uses v3 guidance for stable review replies", () => {
-    expect(DEFAULT_REVIEW_PROMPT).toContain("430〜520文字")
-    expect(DEFAULT_REVIEW_PROMPT).toContain("最低でも360文字以上")
+    expect(DEFAULT_REVIEW_PROMPT).toContain("500-600文字")
+    expect(DEFAULT_REVIEW_PROMPT).toContain("最低でも400文字以上")
     expect(DEFAULT_REVIEW_PROMPT).toContain("混合モード")
     expect(DEFAULT_REVIEW_PROMPT).toContain("レビューにある表現を受け止める場合は使用できる")
     expect(DEFAULT_REVIEW_PROMPT).toContain("推奨時令一言")
