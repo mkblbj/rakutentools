@@ -64,6 +64,35 @@ export class GeminiProvider implements LLMProvider {
     return text.trim()
   }
 
+  async generateReplyMessages(messages: Array<{ role: string; content: string }>): Promise<string> {
+    this.ensureModel()
+    const systemMsg = messages.find((m) => m.role === "system")
+    const nonSystemMsgs = messages.filter((m) => m.role !== "system")
+
+    const contents = nonSystemMsgs.map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }))
+
+    const config = this.buildConfig()
+    if (systemMsg) {
+      config.systemInstruction = systemMsg.content
+    }
+
+    const response = await this.genAI.models.generateContent({
+      model: this.model,
+      contents,
+      config,
+    })
+
+    const text = response.text
+    if (!text) {
+      throw new Error("Gemini returned empty content")
+    }
+
+    return text.trim()
+  }
+
   async *generateReplyStream(
     messages: Array<{ role: string; content: string }>,
     signal?: AbortSignal

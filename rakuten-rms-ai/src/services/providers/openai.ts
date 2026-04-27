@@ -44,6 +44,14 @@ export class OpenAIProvider implements LLMProvider {
     return this.generateReplyChat(prompt)
   }
 
+  async generateReplyMessages(messages: Array<{ role: string; content: string }>): Promise<string> {
+    this.ensureModel()
+    if (this.apiMode === "responses") {
+      return this.generateReplyResponsesMessages(messages)
+    }
+    return this.generateReplyChatMessages(messages)
+  }
+
   async *generateReplyStream(
     messages: Array<{ role: string; content: string }>,
     signal?: AbortSignal
@@ -57,6 +65,40 @@ export class OpenAIProvider implements LLMProvider {
   }
 
   // ─── Responses API ─────────────────────────────────────────
+
+  private async generateReplyResponsesMessages(messages: Array<{ role: string; content: string }>): Promise<string> {
+    const systemMsg = messages.find((m) => m.role === "system")
+    const inputMsgs = messages
+      .filter((m) => m.role !== "system")
+      .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }))
+
+    const response = await (this.client as any).responses.create(
+      buildOpenAIResponsesParams({
+        model: this.model,
+        input: inputMsgs,
+        instructions: systemMsg?.content,
+        maxOutputTokens: this.maxOutputTokens,
+        reasoningEffort: this.reasoningEffort,
+        verbosity: this.verbosity,
+        stream: false,
+      })
+    )
+
+    if (response.status === "incomplete") {
+      const reason = response.incomplete_details?.reason || "unknown"
+      throw new Error(`OpenAI response incomplete: ${reason}. 请调高 max_output_tokens 或降低 verbosity/reasoning。`)
+    }
+
+    if (response.status === "failed") {
+      throw new Error(response.error?.message || "OpenAI Responses API failed")
+    }
+
+    const text = response.output_text
+    if (!text) {
+      throw new Error("OpenAI Responses API returned empty content")
+    }
+    return OpenAIProvider.stripThinkTags(text).trim()
+  }
 
   private async generateReplyResponses(prompt: string): Promise<string> {
     const response = await (this.client as any).responses.create(
@@ -160,6 +202,30 @@ export class OpenAIProvider implements LLMProvider {
   }
 
   // ─── Chat Completions (compat) ─────────────────────────────
+
+  private async generateReplyChatMessages(messages: Array<{ role: string; content: string }>): Promise<string> {
+    const params: OpenAI.ChatCompletionCreateParamsNonStreaming = {
+      model: this.model,
+      messages: messages as OpenAI.ChatCompletionMessageParam[],
+      max_completion_tokens: this.maxOutputTokens,
+    }
+
+    if (isOpenAIReasoningModel(this.model)) {
+      ;(params as any).reasoning_effort = getEffectiveOpenAIReasoningEffort(this.model, this.reasoningEffort)
+    } else {
+      params.temperature = this.temperature
+    }
+    if (this.model.toLowerCase().startsWith("gpt-5")) {
+      ;(params as any).verbosity = this.verbosity
+    }
+
+    const response = await this.client.chat.completions.create(params)
+    const content = response.choices[0]?.message?.content
+    if (!content) {
+      throw new Error("OpenAI returned empty content")
+    }
+    return OpenAIProvider.stripThinkTags(content).trim()
+  }
 
   private async generateReplyChat(prompt: string): Promise<string> {
     const params: OpenAI.ChatCompletionCreateParamsNonStreaming = {

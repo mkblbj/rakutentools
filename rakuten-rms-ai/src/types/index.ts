@@ -67,6 +67,7 @@ export interface ProviderConfig {
 
 export interface LLMProvider {
   generateReply(prompt: string): Promise<string>
+  generateReplyMessages(messages: Array<{ role: string; content: string }>): Promise<string>
   generateReplyStream(
     messages: Array<{ role: string; content: string }>,
     signal?: AbortSignal
