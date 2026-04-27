@@ -2,13 +2,17 @@ import { describe, expect, it } from "vitest"
 import {
   DEFAULT_REVIEW_PROMPT,
   LEGACY_REVIEW_PROMPT_V1,
+  LEGACY_REVIEW_PROMPT_V2,
   resolveReviewPrompt,
 } from "./storage"
 
 describe("review prompt defaults", () => {
-  it("uses v2 length guidance for normal and short reviews", () => {
-    expect(DEFAULT_REVIEW_PROMPT).toContain("450〜550文字")
-    expect(DEFAULT_REVIEW_PROMPT).toContain("320〜450文字")
+  it("uses v3 guidance for stable review replies", () => {
+    expect(DEFAULT_REVIEW_PROMPT).toContain("430〜520文字")
+    expect(DEFAULT_REVIEW_PROMPT).toContain("最低でも360文字以上")
+    expect(DEFAULT_REVIEW_PROMPT).toContain("混合モード")
+    expect(DEFAULT_REVIEW_PROMPT).toContain("レビューにある表現を受け止める場合は使用できる")
+    expect(DEFAULT_REVIEW_PROMPT).not.toContain("320〜450文字")
     expect(DEFAULT_REVIEW_PROMPT).not.toContain("400〜600文字")
   })
 
@@ -23,6 +27,11 @@ describe("review prompt defaults", () => {
     )
 
     expect(resolveReviewPrompt(storedLegacyPrompt)).toBe(DEFAULT_REVIEW_PROMPT)
+  })
+
+  it("migrates the unmodified v2 default prompt to v3", () => {
+    expect(LEGACY_REVIEW_PROMPT_V2).toContain("320〜450文字")
+    expect(resolveReviewPrompt(LEGACY_REVIEW_PROMPT_V2)).toBe(DEFAULT_REVIEW_PROMPT)
   })
 
   it("keeps customized prompts unchanged", () => {
