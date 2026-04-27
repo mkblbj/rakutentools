@@ -1,8 +1,9 @@
 import type { GenerateRequest, GenerateResponse, ReviewContext, StartChatStreamRequest, StreamChunk } from "~types"
 import { StorageService, DEFAULT_REVIEW_PROMPT } from "~services/storage"
+import { buildReviewMessages } from "~services/review-prompt"
 import { ModelFactory } from "~services/providers"
 import { stripTrailingMeta } from "~utils/text-cleanup"
-import { getSeasonalContext, type SeasonalContext } from "~utils/seasonal"
+import { getSeasonalContext } from "~utils/seasonal"
 
 console.log("評価返信AI Background Service Worker started")
 
@@ -155,13 +156,14 @@ function handleReviewStreamPort(port: chrome.runtime.Port) {
 
       const promptTemplate = settings.reviewPrompt || DEFAULT_REVIEW_PROMPT
       const seasonal = settings.seasonalReplyEnabled ? getSeasonalContext() : undefined
-      const prompt = buildPrompt(promptTemplate, request.context, seasonal)
+      const messages = buildReviewMessages({
+        template: promptTemplate,
+        context: request.context,
+        seasonal,
+      })
 
       const provider = await ModelFactory.createCurrentProvider()
-      const stream = provider.generateReplyStream(
-        buildReviewMessages(prompt),
-        abortController.signal
-      )
+      const stream = provider.generateReplyStream(messages, abortController.signal)
 
       for await (const chunk of stream) {
         if (abortController.signal.aborted) break
@@ -204,10 +206,14 @@ async function handleGenerateReply(request: GenerateRequest): Promise<GenerateRe
 
     const promptTemplate = settings.reviewPrompt || DEFAULT_REVIEW_PROMPT
     const seasonal = settings.seasonalReplyEnabled ? getSeasonalContext() : undefined
-    const prompt = buildPrompt(promptTemplate, request.context, seasonal)
+    const messages = buildReviewMessages({
+      template: promptTemplate,
+      context: request.context,
+      seasonal,
+    })
 
     const provider = await ModelFactory.createCurrentProvider()
-    const reply = await provider.generateReply(prompt)
+    const reply = await provider.generateReplyMessages(messages)
 
     return { success: true, data: stripTrailingMeta(reply) }
   } catch (error) {
@@ -246,47 +252,6 @@ async function handleFetchModels(providerType?: string): Promise<{ success: bool
       error: error instanceof Error ? error.message : "获取模型失败",
     }
   }
-}
-
-function buildPrompt(template: string, context: ReviewContext, seasonal?: SeasonalContext): string {
-  const hasSeasonalVars = /\{\{(current_date_jst|season_label|holiday_label|seasonal_greeting)\}\}/.test(template)
-
-  let result = template
-    .replace(/\{\{review_content\}\}/g, context.reviewContent || "")
-    .replace(/\{\{rating\}\}/g, context.rating || "5")
-    .replace(/\{\{product_name\}\}/g, context.productName || "")
-    .replace(/\{\{buyer_name\}\}/g, context.buyerName || "")
-
-  if (seasonal) {
-    result = result
-      .replace(/\{\{current_date_jst\}\}/g, seasonal.currentDateJst)
-      .replace(/\{\{season_label\}\}/g, seasonal.seasonLabel)
-      .replace(/\{\{holiday_label\}\}/g, seasonal.holidayLabel || "なし")
-      .replace(/\{\{seasonal_greeting\}\}/g, seasonal.seasonalGreeting)
-
-    if (!hasSeasonalVars) {
-      const holidayInfo = seasonal.holidayLabel || "なし"
-      result += `\n\n---\n**【季節情報】** 返信日: ${seasonal.currentDateJst}（${seasonal.seasonLabel}）/ 祝日・行事: ${holidayInfo}\n感謝モードの場合のみ、冒頭か結びに季節の一言を1文だけ自然に添えてください: 「${seasonal.seasonalGreeting}」（参考・アレンジ可）。謝罪モードでは不要。`
-    }
-  } else {
-    result = result
-      .replace(/\{\{current_date_jst\}\}/g, "")
-      .replace(/\{\{season_label\}\}/g, "")
-      .replace(/\{\{holiday_label\}\}/g, "")
-      .replace(/\{\{seasonal_greeting\}\}/g, "")
-  }
-
-  return result
-}
-
-const REVIEW_USER_INSTRUCTION =
-  "上記のルールに厳密に従い、400〜600文字の返信文のみを出力してください。文字数カウント・メモ・補足説明は一切付けないでください。"
-
-function buildReviewMessages(prompt: string): Array<{ role: string; content: string }> {
-  return [
-    { role: "system", content: prompt },
-    { role: "user", content: REVIEW_USER_INSTRUCTION },
-  ]
 }
 
 export {}

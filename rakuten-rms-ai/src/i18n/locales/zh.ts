@@ -16,7 +16,11 @@ const zh: TranslationDict = {
   "options.setDefault": "设为默认",
   "options.tokenBudgetNoteLabel": "Token 预算说明",
   "options.tokenBudgetNote":
-    "「可见输出 Token」只控制回复长度，思考 token 由独立参数控制，互不挤占。",
+    "不同 Provider 的 token 预算语义不同，请查看当前配置页说明。",
+  "options.openaiTokenBudgetNote":
+    "OpenAI Responses 的 max_output_tokens 是总输出上限，包含可见回复和 reasoning tokens。字数主要由 Prompt 与 Verbosity 控制。",
+  "options.geminiTokenBudgetNote":
+    "Gemini 的可见输出和 thinkingBudget 在本插件中分开设置，发送请求时会合并为 API 的 maxOutputTokens。",
   "options.apiKey": "API Key",
   "options.apiKeyFromOpenai": "从 OpenAI Platform 获取",
   "options.apiKeyFromGemini": "从 Google AI Studio 获取",
@@ -32,12 +36,20 @@ const zh: TranslationDict = {
   "options.fetchModelsFail": "获取模型失败",
   "options.enterApiKeyFirst": "请先填写 {provider} API Key",
   "options.visibleOutputTokens": "可见输出 Token",
-  "options.reasoningEffort": "思考深度 (reasoning_effort)",
-  "options.reasoningLow": "low（省 token）",
-  "options.reasoningMedium": "medium",
-  "options.reasoningHigh": "high（深度思考）",
+  "options.openaiMaxOutputTokens": "总输出 Token 上限 (max_output_tokens)",
+  "options.reasoningEffort": "思考强度 (reasoning.effort)",
+  "options.reasoningLow": "low（更快、省 token）",
+  "options.reasoningMedium": "medium（推荐）",
+  "options.reasoningHigh": "high（更深思考）",
+  "options.reasoningXHigh": "xhigh（最深思考）",
   "options.reasoningNote":
-    "思考 tokens 不占用输出预算。仅推理模型有效，其他模型自动忽略。",
+    "仅 GPT-5 / o 系列等推理模型有效。GPT-5.5 默认 medium；更高强度会增加延迟和 token 消耗。",
+  "options.openaiVerbosity": "输出详略 (text.verbosity)",
+  "options.verbosityLow": "low（更简短）",
+  "options.verbosityMedium": "medium（推荐）",
+  "options.verbosityHigh": "high（更详细）",
+  "options.verbosityNote":
+    "用于控制 GPT-5 系列最终回复的详略，不等同于字数保证。评价回复建议 medium，过长时改为 low。",
   "options.apiMode": "API 模式",
   "options.apiModeResponses": "Responses API（推荐）",
   "options.apiModeChat": "Chat Completions（兼容）",

@@ -14,7 +14,11 @@ const ja = {
   "options.setDefault": "デフォルトに設定",
   "options.tokenBudgetNoteLabel": "トークン予算の説明",
   "options.tokenBudgetNote":
-    "「可視出力トークン」は返信の長さだけを制御します。思考トークンは独立パラメータで制御され、互いに影響しません。",
+    "Provider によってトークン予算の意味が異なります。現在の設定ページの説明を確認してください。",
+  "options.openaiTokenBudgetNote":
+    "OpenAI Responses の max_output_tokens は総出力上限で、可視返信と reasoning tokens の両方を含みます。文字数は主に Prompt と Verbosity で制御します。",
+  "options.geminiTokenBudgetNote":
+    "Gemini では本プラグイン上で可視出力と thinkingBudget を分けて設定し、API 送信時に maxOutputTokens として合算します。",
   "options.apiKey": "API Key",
   "options.apiKeyFromOpenai": "OpenAI Platform から取得",
   "options.apiKeyFromGemini": "Google AI Studio から取得",
@@ -30,12 +34,20 @@ const ja = {
   "options.fetchModelsFail": "モデル取得に失敗しました",
   "options.enterApiKeyFirst": "{provider} の API Key を先に入力してください",
   "options.visibleOutputTokens": "可視出力トークン",
-  "options.reasoningEffort": "思考深度 (reasoning_effort)",
-  "options.reasoningLow": "low（トークン節約）",
-  "options.reasoningMedium": "medium",
+  "options.openaiMaxOutputTokens": "総出力トークン上限 (max_output_tokens)",
+  "options.reasoningEffort": "思考強度 (reasoning.effort)",
+  "options.reasoningLow": "low（高速・省トークン）",
+  "options.reasoningMedium": "medium（推奨）",
   "options.reasoningHigh": "high（深い思考）",
+  "options.reasoningXHigh": "xhigh（最深の思考）",
   "options.reasoningNote":
-    "思考トークンは出力予算を占有しません。推理モデルのみ有効、他のモデルでは自動的に無視されます。",
+    "GPT-5 / o シリーズなどの推理モデルでのみ有効です。GPT-5.5 のデフォルトは medium です。高い強度ほど遅延と token 消費が増えます。",
+  "options.openaiVerbosity": "出力の詳しさ (text.verbosity)",
+  "options.verbosityLow": "low（短め）",
+  "options.verbosityMedium": "medium（推奨）",
+  "options.verbosityHigh": "high（詳しめ）",
+  "options.verbosityNote":
+    "GPT-5 系列の最終返信の詳しさを制御します。文字数保証ではありません。レビュー返信は medium 推奨、長すぎる場合は low にします。",
   "options.apiMode": "API モード",
   "options.apiModeResponses": "Responses API（推奨）",
   "options.apiModeChat": "Chat Completions（互換）",

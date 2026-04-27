@@ -3,12 +3,18 @@
  * Asia/Tokyo 基準で当日の季節情報を生成する
  */
 
+export type SeasonalMentionType = "holiday" | "event" | "season"
+
 export interface SeasonalContext {
   currentDateJst: string
   seasonLabel: string
   holidayLabel: string
   dayTypeLabel: string
   seasonalGreeting: string
+  mentionType: SeasonalMentionType
+  mentionLabel: string
+  recommendedMention: string
+  shouldUseInReply: boolean
 }
 
 interface FixedHoliday {
@@ -32,6 +38,17 @@ interface SeasonalEvent {
   greeting: string
 }
 
+interface SeasonalEventWindow extends SeasonalEvent {
+  preDays: number
+  postDays: number
+  preLabel?: string
+  postLabel?: string
+  preGreeting?: string
+  postGreeting?: string
+}
+
+type SeasonalEventPhase = "pre" | "during" | "post"
+
 const FIXED_HOLIDAYS: FixedHoliday[] = [
   { month: 1, day: 1, name: "元日" },
   { month: 2, day: 11, name: "建国記念の日" },
@@ -52,34 +69,89 @@ const HAPPY_MONDAY_HOLIDAYS: HappyMondayHoliday[] = [
   { month: 10, weekOfMonth: 2, name: "スポーツの日" },
 ]
 
-const SEASONAL_EVENTS: SeasonalEvent[] = [
-  { startMonth: 12, startDay: 28, endMonth: 12, endDay: 31, name: "年末", greeting: "年の瀬も押し迫ってまいりましたが" },
-  { startMonth: 1, startDay: 1, endMonth: 1, endDay: 3, name: "年始", greeting: "新年を迎え気持ちも新たな頃かと存じますが" },
-  { startMonth: 4, startDay: 29, endMonth: 5, endDay: 5, name: "ゴールデンウィーク", greeting: "大型連休の季節となりましたが" },
-  { startMonth: 8, startDay: 13, endMonth: 8, endDay: 16, name: "お盆", greeting: "お盆の時期、いかがお過ごしでしょうか" },
-  { startMonth: 12, startDay: 24, endMonth: 12, endDay: 25, name: "クリスマス", greeting: "クリスマスの季節となりましたが" },
+const SEASONAL_EVENTS: SeasonalEventWindow[] = [
+  {
+    startMonth: 12,
+    startDay: 28,
+    endMonth: 12,
+    endDay: 31,
+    name: "年末",
+    greeting: "年末のお忙しい時期に、当店をご利用いただきありがとうございます",
+    preDays: 3,
+    postDays: 0,
+    preGreeting: "年末を前にお忙しいなか、当店をご利用いただきありがとうございます",
+  },
+  {
+    startMonth: 1,
+    startDay: 1,
+    endMonth: 1,
+    endDay: 3,
+    name: "年始",
+    greeting: "新しい年のはじまりに、当店をご利用いただきありがとうございます",
+    preDays: 0,
+    postDays: 4,
+    postGreeting: "年始明けのお忙しいなか、当店をご利用いただきありがとうございます",
+  },
+  {
+    startMonth: 4,
+    startDay: 29,
+    endMonth: 5,
+    endDay: 5,
+    name: "ゴールデンウィーク",
+    greeting: "大型連休の時期に、当店をご利用いただきありがとうございます",
+    preDays: 3,
+    postDays: 1,
+    preLabel: "ゴールデンウィーク前",
+    postLabel: "ゴールデンウィーク明け",
+    preGreeting: "大型連休を前に、当店をご利用いただきありがとうございます",
+    postGreeting: "大型連休明けのお忙しいなか、当店をご利用いただきありがとうございます",
+  },
+  {
+    startMonth: 8,
+    startDay: 13,
+    endMonth: 8,
+    endDay: 16,
+    name: "お盆",
+    greeting: "お盆の時期に、当店をご利用いただきありがとうございます",
+    preDays: 2,
+    postDays: 1,
+    preGreeting: "お盆を前に、当店をご利用いただきありがとうございます",
+    postGreeting: "お盆明けのお忙しいなか、当店をご利用いただきありがとうございます",
+  },
+  {
+    startMonth: 12,
+    startDay: 24,
+    endMonth: 12,
+    endDay: 25,
+    name: "クリスマス",
+    greeting: "クリスマスの季節に、当店をご利用いただきありがとうございます",
+    preDays: 5,
+    postDays: 1,
+    preGreeting: "クリスマスを前に、当店をご利用いただきありがとうございます",
+    postGreeting: "クリスマス明けのお忙しいなか、当店をご利用いただきありがとうございます",
+  },
 ]
 
 const SEASON_GREETINGS: Record<string, string[]> = {
   春: [
-    "春らしい穏やかな陽気が続いておりますが",
-    "春の訪れを感じる頃となりましたが",
-    "花の便りが届く季節となりましたが",
+    "春らしい穏やかな季節に、当店をご利用いただきありがとうございます",
+    "日ごとに暖かさを感じる頃、レビューをお寄せいただきありがとうございます",
+    "新しい季節のなか、当店をご利用いただきありがとうございます",
   ],
   夏: [
-    "暑い日が続いておりますが",
-    "夏の日差しがまぶしい季節ですが",
-    "蒸し暑い日々が続いておりますが",
+    "暑さが続くなか、当店をご利用いただきありがとうございます",
+    "夏の陽気が感じられるなか、レビューをお寄せいただきありがとうございます",
+    "蒸し暑い日が続くなか、当店をご利用いただきありがとうございます",
   ],
   秋: [
-    "秋の気配を感じる頃となりましたが",
-    "秋風が心地よい季節ですが",
-    "過ごしやすい季節となりましたが",
+    "秋らしさを感じる季節に、当店をご利用いただきありがとうございます",
+    "過ごしやすい季節のなか、レビューをお寄せいただきありがとうございます",
+    "朝晩に秋の気配を感じる頃、当店をご利用いただきありがとうございます",
   ],
   冬: [
-    "寒さが厳しくなってまいりましたが",
-    "冬本番の寒さですが",
-    "寒い日が続いておりますが",
+    "寒さが気になる季節に、当店をご利用いただきありがとうございます",
+    "冬らしい冷え込みのなか、レビューをお寄せいただきありがとうございます",
+    "年の瀬に向かう季節、当店をご利用いただきありがとうございます",
   ],
 }
 
@@ -141,20 +213,6 @@ function getHolidayLabel(year: number, month: number, day: number, dayOfWeek: nu
   return null
 }
 
-function getSeasonalEvent(month: number, day: number): SeasonalEvent | null {
-  const current = month * 100 + day
-  for (const evt of SEASONAL_EVENTS) {
-    const start = evt.startMonth * 100 + evt.startDay
-    const end = evt.endMonth * 100 + evt.endDay
-    if (start <= end) {
-      if (current >= start && current <= end) return evt
-    } else {
-      if (current >= start || current <= end) return evt
-    }
-  }
-  return null
-}
-
 function getSeasonLabel(month: number): string {
   if (month >= 3 && month <= 5) return "春"
   if (month >= 6 && month <= 8) return "夏"
@@ -162,36 +220,121 @@ function getSeasonLabel(month: number): string {
   return "冬"
 }
 
-function pickRandom<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]
+function toUtcDate(year: number, month: number, day: number): Date {
+  return new Date(Date.UTC(year, month - 1, day))
 }
 
-export function getSeasonalContext(): SeasonalContext {
-  const { year, month, day, dayOfWeek } = getJstNow()
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date)
+  next.setUTCDate(next.getUTCDate() + days)
+  return next
+}
+
+function dateToMonthDayNumber(date: Date): number {
+  return (date.getUTCMonth() + 1) * 100 + date.getUTCDate()
+}
+
+function isWithinMonthDayRange(current: number, start: number, end: number): boolean {
+  if (start <= end) return current >= start && current <= end
+  return current >= start || current <= end
+}
+
+function pickByDate<T>(arr: T[], month: number, day: number): T {
+  return arr[(month * day) % arr.length]
+}
+
+function getSeasonalEvent(
+  year: number,
+  month: number,
+  day: number,
+): { event: SeasonalEventWindow; label: string; phase: SeasonalEventPhase } | null {
+  const currentDate = toUtcDate(year, month, day)
+  const current = dateToMonthDayNumber(currentDate)
+
+  for (const event of SEASONAL_EVENTS) {
+    const startDate = toUtcDate(year, event.startMonth, event.startDay)
+    const endDate = toUtcDate(year, event.endMonth, event.endDay)
+    const start = event.startMonth * 100 + event.startDay
+    const end = event.endMonth * 100 + event.endDay
+
+    if (isWithinMonthDayRange(current, start, end)) {
+      return { event, label: event.name, phase: "during" }
+    }
+
+    for (let offset = 1; offset <= event.preDays; offset++) {
+      if (dateToMonthDayNumber(addDays(startDate, -offset)) === current) {
+        return { event, label: event.preLabel || `${event.name}前`, phase: "pre" }
+      }
+    }
+
+    for (let offset = 1; offset <= event.postDays; offset++) {
+      if (dateToMonthDayNumber(addDays(endDate, offset)) === current) {
+        return { event, label: event.postLabel || `${event.name}明け`, phase: "post" }
+      }
+    }
+  }
+
+  return null
+}
+
+function getSeasonalEventGreeting(seasonalEvent: {
+  event: SeasonalEventWindow
+  phase: SeasonalEventPhase
+}): string {
+  if (seasonalEvent.phase === "pre") return seasonalEvent.event.preGreeting || seasonalEvent.event.greeting
+  if (seasonalEvent.phase === "post") return seasonalEvent.event.postGreeting || seasonalEvent.event.greeting
+  return seasonalEvent.event.greeting
+}
+
+export function getSeasonalContextForDate(date: Date): SeasonalContext {
+  const year = date.getUTCFullYear()
+  const month = date.getUTCMonth() + 1
+  const day = date.getUTCDate()
+  const dayOfWeek = date.getUTCDay()
 
   const dayName = DAY_NAMES[dayOfWeek]
   const currentDateJst = `${year}年${month}月${day}日（${dayName}）`
   const seasonLabel = getSeasonLabel(month)
 
   const holidayName = getHolidayLabel(year, month, day, dayOfWeek)
-  const seasonalEvent = getSeasonalEvent(month, day)
+  const seasonalEvent = getSeasonalEvent(year, month, day)
 
   let holidayLabel = ""
-  let dayTypeLabel: string
-  let seasonalGreeting: string
+  let dayTypeLabel = dayOfWeek === 0 || dayOfWeek === 6 ? "週末" : "平日"
+  let seasonalGreeting = pickByDate(SEASON_GREETINGS[seasonLabel], month, day)
+  let mentionType: SeasonalMentionType = "season"
+  let mentionLabel = seasonLabel
+  let recommendedMention = seasonalGreeting
 
   if (holidayName) {
     holidayLabel = holidayName
     dayTypeLabel = "祝日"
-    seasonalGreeting = seasonalEvent?.greeting ?? pickRandom(SEASON_GREETINGS[seasonLabel])
+    mentionType = "holiday"
+    mentionLabel = holidayName
+    recommendedMention = `${holidayName}の時期に、当店をご利用いただきありがとうございます`
   } else if (seasonalEvent) {
-    holidayLabel = seasonalEvent.name
+    holidayLabel = seasonalEvent.label
     dayTypeLabel = dayOfWeek === 0 || dayOfWeek === 6 ? "週末" : "平日"
-    seasonalGreeting = seasonalEvent.greeting
-  } else {
-    dayTypeLabel = dayOfWeek === 0 || dayOfWeek === 6 ? "週末" : "平日"
-    seasonalGreeting = pickRandom(SEASON_GREETINGS[seasonLabel])
+    seasonalGreeting = getSeasonalEventGreeting(seasonalEvent)
+    mentionType = "event"
+    mentionLabel = seasonalEvent.event.name
+    recommendedMention = seasonalGreeting
   }
 
-  return { currentDateJst, seasonLabel, holidayLabel, dayTypeLabel, seasonalGreeting }
+  return {
+    currentDateJst,
+    seasonLabel,
+    holidayLabel,
+    dayTypeLabel,
+    seasonalGreeting,
+    mentionType,
+    mentionLabel,
+    recommendedMention,
+    shouldUseInReply: true,
+  }
+}
+
+export function getSeasonalContext(): SeasonalContext {
+  const { year, month, day } = getJstNow()
+  return getSeasonalContextForDate(toUtcDate(year, month, day))
 }

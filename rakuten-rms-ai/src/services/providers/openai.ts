@@ -1,11 +1,20 @@
 import OpenAI from "openai"
 import type { LLMProvider, ProviderConfig, StreamChunk } from "~types"
+import {
+  buildOpenAIResponsesParams,
+  getEffectiveOpenAIReasoningEffort,
+  getOpenAIStreamError,
+  isOpenAIReasoningModel,
+  type OpenAIReasoningEffort,
+  type OpenAIVerbosity,
+} from "./openai-params"
 
 export class OpenAIProvider implements LLMProvider {
   private client: OpenAI
   private model: string
   private maxOutputTokens: number
-  private reasoningEffort: "low" | "medium" | "high"
+  private reasoningEffort: OpenAIReasoningEffort
+  private verbosity: OpenAIVerbosity
   private temperature: number
   private apiMode: "responses" | "chat"
 
@@ -17,25 +26,10 @@ export class OpenAIProvider implements LLMProvider {
     })
     this.model = config.model || ""
     this.maxOutputTokens = config.maxOutputTokens || 2048
-    this.reasoningEffort = config.reasoningEffort || "low"
+    this.reasoningEffort = config.reasoningEffort || "medium"
+    this.verbosity = config.verbosity || "medium"
     this.temperature = config.temperature ?? 0.7
     this.apiMode = config.apiMode || "responses"
-  }
-
-  private isReasoningModel(): boolean {
-    const m = this.model.toLowerCase()
-    return (
-      m.startsWith("o1") || m.startsWith("o3") || m.startsWith("o4") ||
-      m.startsWith("gpt-5") ||
-      m.includes("grok-3-mini")
-    )
-  }
-
-  private getEffectiveEffort(): "low" | "medium" | "high" {
-    if (this.model.toLowerCase().includes("grok-3-mini") && this.reasoningEffort === "medium") {
-      return "high"
-    }
-    return this.reasoningEffort
   }
 
   private ensureModel() {
@@ -48,6 +42,14 @@ export class OpenAIProvider implements LLMProvider {
       return this.generateReplyResponses(prompt)
     }
     return this.generateReplyChat(prompt)
+  }
+
+  async generateReplyMessages(messages: Array<{ role: string; content: string }>): Promise<string> {
+    this.ensureModel()
+    if (this.apiMode === "responses") {
+      return this.generateReplyResponsesMessages(messages)
+    }
+    return this.generateReplyChatMessages(messages)
   }
 
   async *generateReplyStream(
@@ -64,13 +66,67 @@ export class OpenAIProvider implements LLMProvider {
 
   // ─── Responses API ─────────────────────────────────────────
 
+  private async generateReplyResponsesMessages(messages: Array<{ role: string; content: string }>): Promise<string> {
+    const systemMsg = messages.find((m) => m.role === "system")
+    const inputMsgs = messages
+      .filter((m) => m.role !== "system")
+      .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }))
+
+    const response = await (this.client as any).responses.create(
+      buildOpenAIResponsesParams({
+        model: this.model,
+        input: inputMsgs,
+        instructions: systemMsg?.content,
+        maxOutputTokens: this.maxOutputTokens,
+        reasoningEffort: this.reasoningEffort,
+        verbosity: this.verbosity,
+        stream: false,
+      })
+    )
+
+    if (response.status === "incomplete") {
+      const reason = response.incomplete_details?.reason || "unknown"
+      throw new Error(`OpenAI response incomplete: ${reason}. 请调高 max_output_tokens 或降低 verbosity/reasoning。`)
+    }
+
+    if (response.status === "failed") {
+      throw new Error(response.error?.message || "OpenAI Responses API failed")
+    }
+
+    const text = response.output_text
+    if (!text) {
+      throw new Error("OpenAI Responses API returned empty content")
+    }
+    return OpenAIProvider.stripThinkTags(text).trim()
+  }
+
   private async generateReplyResponses(prompt: string): Promise<string> {
-    const response = await (this.client as any).responses.create({
-      model: this.model,
-      input: [{ role: "user", content: prompt }],
-      max_output_tokens: this.maxOutputTokens,
-      reasoning: { effort: this.getEffectiveEffort() },
-    })
+    const response = await (this.client as any).responses.create(
+      buildOpenAIResponsesParams({
+        model: this.model,
+        input: [{ role: "user", content: prompt }],
+        maxOutputTokens: this.maxOutputTokens,
+        reasoningEffort: this.reasoningEffort,
+        verbosity: this.verbosity,
+        stream: false,
+      })
+    )
+
+    if (response.status === "incomplete") {
+      const reason = response.incomplete_details?.reason || "unknown"
+      throw new Error(`OpenAI response incomplete: ${reason}. 请调高 max_output_tokens 或降低 verbosity/reasoning。`)
+    }
+
+    if (response.status === "failed") {
+      throw new Error(response.error?.message || "OpenAI Responses API failed")
+    }
+
+    if (response.usage?.output_tokens_details?.reasoning_tokens !== undefined) {
+      console.debug("OpenAI usage", {
+        outputTokens: response.usage.output_tokens,
+        reasoningTokens: response.usage.output_tokens_details.reasoning_tokens,
+      })
+    }
 
     const text = response.output_text
     if (!text) {
@@ -88,16 +144,15 @@ export class OpenAIProvider implements LLMProvider {
       .filter((m) => m.role !== "system")
       .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }))
 
-    const params: Record<string, any> = {
+    const params = buildOpenAIResponsesParams({
       model: this.model,
       input: inputMsgs,
-      max_output_tokens: this.maxOutputTokens,
+      instructions: systemMsg?.content,
+      maxOutputTokens: this.maxOutputTokens,
+      reasoningEffort: this.reasoningEffort,
+      verbosity: this.verbosity,
       stream: true,
-      reasoning: { effort: this.getEffectiveEffort() },
-    }
-    if (systemMsg) {
-      params.instructions = systemMsg.content
-    }
+    })
 
     const stream = await (this.client as any).responses.create(params, {
       signal,
@@ -108,6 +163,16 @@ export class OpenAIProvider implements LLMProvider {
 
     for await (const event of stream) {
       if (signal?.aborted) break
+
+      const streamError = getOpenAIStreamError(event)
+      if (streamError) throw streamError
+
+      if (event.type === "response.completed" && event.response?.usage?.output_tokens_details?.reasoning_tokens !== undefined) {
+        console.debug("OpenAI usage", {
+          outputTokens: event.response.usage.output_tokens,
+          reasoningTokens: event.response.usage.output_tokens_details.reasoning_tokens,
+        })
+      }
 
       switch (event.type) {
         case "response.output_text.delta":
@@ -138,6 +203,30 @@ export class OpenAIProvider implements LLMProvider {
 
   // ─── Chat Completions (compat) ─────────────────────────────
 
+  private async generateReplyChatMessages(messages: Array<{ role: string; content: string }>): Promise<string> {
+    const params: OpenAI.ChatCompletionCreateParamsNonStreaming = {
+      model: this.model,
+      messages: messages as OpenAI.ChatCompletionMessageParam[],
+      max_completion_tokens: this.maxOutputTokens,
+    }
+
+    if (isOpenAIReasoningModel(this.model)) {
+      ;(params as any).reasoning_effort = getEffectiveOpenAIReasoningEffort(this.model, this.reasoningEffort)
+    } else {
+      params.temperature = this.temperature
+    }
+    if (this.model.toLowerCase().startsWith("gpt-5")) {
+      ;(params as any).verbosity = this.verbosity
+    }
+
+    const response = await this.client.chat.completions.create(params)
+    const content = response.choices[0]?.message?.content
+    if (!content) {
+      throw new Error("OpenAI returned empty content")
+    }
+    return OpenAIProvider.stripThinkTags(content).trim()
+  }
+
   private async generateReplyChat(prompt: string): Promise<string> {
     const params: OpenAI.ChatCompletionCreateParamsNonStreaming = {
       model: this.model,
@@ -145,10 +234,13 @@ export class OpenAIProvider implements LLMProvider {
       max_completion_tokens: this.maxOutputTokens,
     }
 
-    if (this.isReasoningModel()) {
-      ;(params as any).reasoning_effort = this.getEffectiveEffort()
+    if (isOpenAIReasoningModel(this.model)) {
+      ;(params as any).reasoning_effort = getEffectiveOpenAIReasoningEffort(this.model, this.reasoningEffort)
     } else {
       params.temperature = this.temperature
+    }
+    if (this.model.toLowerCase().startsWith("gpt-5")) {
+      ;(params as any).verbosity = this.verbosity
     }
 
     const response = await this.client.chat.completions.create(params)
@@ -172,10 +264,13 @@ export class OpenAIProvider implements LLMProvider {
       stream: true,
     }
 
-    if (this.isReasoningModel()) {
-      ;(params as any).reasoning_effort = this.getEffectiveEffort()
+    if (isOpenAIReasoningModel(this.model)) {
+      ;(params as any).reasoning_effort = getEffectiveOpenAIReasoningEffort(this.model, this.reasoningEffort)
     } else {
       params.temperature = this.temperature
+    }
+    if (this.model.toLowerCase().startsWith("gpt-5")) {
+      ;(params as any).verbosity = this.verbosity
     }
 
     const stream = await this.client.chat.completions.create(params, {
