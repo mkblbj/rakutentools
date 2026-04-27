@@ -76,6 +76,18 @@ export function buildReviewUserContent(context: ReviewContext, seasonal?: Season
     "",
     "【季節の一言（参考）】",
     seasonal?.seasonalGreeting || "",
+    "",
+    "【時令タイプ】",
+    seasonal?.mentionType || "",
+    "",
+    "【時令ラベル】",
+    seasonal?.mentionLabel || "",
+    "",
+    "【推奨時令一言】",
+    seasonal?.recommendedMention || "",
+    "",
+    "【時令使用可否】",
+    seasonal ? (seasonal.shouldUseInReply ? "使用可" : "使用不可") : "",
   ].join("\n")
 }
 
@@ -89,4 +101,8 @@ function replaceInstructionPlaceholders(template: string, seasonal?: SeasonalCon
     .replace(/\{\{season_label\}\}/g, seasonal?.seasonLabel || "下記の【季節】")
     .replace(/\{\{holiday_label\}\}/g, seasonal?.holidayLabel || "なし")
     .replace(/\{\{seasonal_greeting\}\}/g, seasonal?.seasonalGreeting || "下記の【季節の一言（参考）】")
+    .replace(/\{\{mention_type\}\}/g, seasonal?.mentionType || "下記の【時令タイプ】")
+    .replace(/\{\{mention_label\}\}/g, seasonal?.mentionLabel || "下記の【時令ラベル】")
+    .replace(/\{\{recommended_mention\}\}/g, seasonal?.recommendedMention || "下記の【推奨時令一言】")
+    .replace(/\{\{should_use_seasonal_mention\}\}/g, seasonal ? (seasonal.shouldUseInReply ? "使用可" : "使用不可") : "下記の【時令使用可否】")
 }
