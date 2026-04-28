@@ -307,11 +307,14 @@ export function getSeasonalContextForDate(date: Date): SeasonalContext {
   let recommendedMention = seasonalGreeting
 
   if (holidayName) {
+    const holidayGreeting = `${holidayName}の時期に、当店をご利用いただきありがとうございます`
+
     holidayLabel = holidayName
     dayTypeLabel = "祝日"
+    seasonalGreeting = holidayGreeting
     mentionType = "holiday"
     mentionLabel = holidayName
-    recommendedMention = `${holidayName}の時期に、当店をご利用いただきありがとうございます`
+    recommendedMention = holidayGreeting
   } else if (seasonalEvent) {
     holidayLabel = seasonalEvent.label
     dayTypeLabel = dayOfWeek === 0 || dayOfWeek === 6 ? "週末" : "平日"
