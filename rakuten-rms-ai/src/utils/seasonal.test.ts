@@ -13,7 +13,9 @@ describe("seasonal context v2", () => {
     expect(context.dayTypeLabel).toBe("祝日")
     expect(context.mentionType).toBe("holiday")
     expect(context.mentionLabel).toBe("昭和の日")
+    expect(context.seasonalGreeting).toContain("昭和の日")
     expect(context.recommendedMention).toContain("昭和の日")
+    expect(context.recommendedMention).toBe(context.seasonalGreeting)
     expect(context.shouldUseInReply).toBe(true)
   })
 
