@@ -144,6 +144,10 @@ function OptionsIndex() {
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-8">
+        <div className="mb-6 p-4 rounded-lg border border-blue-200 bg-blue-50 text-sm text-blue-800">
+          <strong>uo-ec-manager:</strong>{" "}
+          この API 設定はデスクトップ端から集中管理されます。保存済みの設定は次回バックオフィスを開く時に自動同期されます。
+        </div>
         <div className="flex gap-6">
           <div className="w-64 space-y-2">
             {([
