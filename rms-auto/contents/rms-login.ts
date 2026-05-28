@@ -1,5 +1,10 @@
 import type { PlasmoCSConfig } from "plasmo"
 
+import {
+  RMS_LOGIN_SUBMIT_DELAY_MS,
+  setInputValueAndNotify
+} from "../lib/login-dom"
+
 export const config: PlasmoCSConfig = {
   matches: ["https://glogin.rms.rakuten.co.jp/*"],
   all_frames: true
@@ -55,7 +60,7 @@ const waitForElement = (
 
 const autoFillLogin = async () => {
   console.log("[RMS Auto Login] Script loaded, URL:", window.location.href)
-  
+
   // 检查密码错误
   if (document.body.innerHTML.includes("R-Loginパスワードに誤りがある")) {
     alert("パスワードが変わっています。")
@@ -64,7 +69,7 @@ const autoFillLogin = async () => {
 
   const shopNo = getShopNo()
   console.log("[RMS Auto Login] ShopNo:", shopNo)
-  
+
   // 保存 shopNo 到 chrome.storage.local，供乐天会员登录页面使用（跨域共享）
   if (shopNo) {
     try {
@@ -74,22 +79,29 @@ const autoFillLogin = async () => {
       console.error("[RMS Auto Login] Failed to save shopNo:", e)
     }
   }
-  
+
   // 检查是否是登录页面（有输入框）
-  const hasLoginInputs = document.querySelector("input#rlogin-username-ja") || 
-                         document.querySelector("input#rlogin-username-2-ja")
-  
+  const hasLoginInputs =
+    document.querySelector("input#rlogin-username-ja") ||
+    document.querySelector("input#rlogin-username-2-ja")
+
   // 如果是登录页面但没有 shopNo，不做任何事情（让用户手动输入）
   if (hasLoginInputs && !shopNo) {
-    console.log("[RMS Auto Login] Login page without shopNo, skipping auto-fill")
+    console.log(
+      "[RMS Auto Login] Login page without shopNo, skipping auto-fill"
+    )
     return
   }
-  
+
   // 如果不是登录页面（没有输入框），检查是否有"次へ"按钮需要点击
   if (!hasLoginInputs) {
-    const submitBtn = document.querySelector<HTMLButtonElement>("button[name='submit']")
+    const submitBtn = document.querySelector<HTMLButtonElement>(
+      "button[name='submit']"
+    )
     if (submitBtn && submitBtn.textContent?.trim() === "次へ") {
-      console.log("[RMS Auto Login] Confirmation page, clicking '次へ' in 300ms")
+      console.log(
+        "[RMS Auto Login] Confirmation page, clicking '次へ' in 300ms"
+      )
       setTimeout(() => submitBtn.click(), 300)
     }
     return
@@ -99,14 +111,14 @@ const autoFillLogin = async () => {
     const data = await chrome.storage.local.get("rms")
     const shops: Shop[] = data.rms || []
     console.log("[RMS Auto Login] Loaded shops:", shops.length)
-    
+
     const shop = shops[parseInt(shopNo)]
 
     if (!shop || !shop.shopName) {
       console.log("[RMS Auto Login] Shop data not found for shopNo:", shopNo)
       return
     }
-    
+
     console.log("[RMS Auto Login] Found shop:", shop.shopName)
 
     // R-Login ID 认证
@@ -130,17 +142,22 @@ const autoFillLogin = async () => {
           const currentAction = form.getAttribute("action") || ""
           if (!currentAction.includes("shopNo=")) {
             form.setAttribute("action", currentAction + "?shopNo=" + shopNo)
-            console.log("[RMS Auto Login] Updated form action:", form.getAttribute("action"))
+            console.log(
+              "[RMS Auto Login] Updated form action:",
+              form.getAttribute("action")
+            )
           }
         }
 
-        usernameInput.value = shop.loginId
-        passwordInput.value = shop.loginPass
-        console.log("[RMS Auto Login] Submitting form in 500ms")
+        setInputValueAndNotify(usernameInput, shop.loginId)
+        setInputValueAndNotify(passwordInput, shop.loginPass)
+        console.log(
+          `[RMS Auto Login] Submitting form in ${RMS_LOGIN_SUBMIT_DELAY_MS}ms`
+        )
         setTimeout(() => {
           console.log("[RMS Auto Login] Clicking submit button")
           submitBtn.click()
-        }, 500)
+        }, RMS_LOGIN_SUBMIT_DELAY_MS)
       }
       return
     }
@@ -160,12 +177,12 @@ const autoFillLogin = async () => {
 
       if (password2Input && submitBtn) {
         console.log("[RMS Auto Login] Filling Rakuten Member credentials")
-        username2Input.value = shop.userId
-        password2Input.value = shop.userPass
+        setInputValueAndNotify(username2Input, shop.userId)
+        setInputValueAndNotify(password2Input, shop.userPass)
         setTimeout(() => {
           console.log("[RMS Auto Login] Submitting Rakuten form")
           submitBtn.click()
-        }, 500)
+        }, RMS_LOGIN_SUBMIT_DELAY_MS)
       }
       return
     }

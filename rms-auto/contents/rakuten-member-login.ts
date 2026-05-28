@@ -1,5 +1,11 @@
 import type { PlasmoCSConfig } from "plasmo"
 
+import {
+  RAKUTEN_MEMBER_RETRY_INTERVAL_MS,
+  RAKUTEN_MEMBER_SUBMIT_DELAY_MS,
+  setInputValueAndNotify
+} from "../lib/login-dom"
+
 /**
  * 乐天会员二次登录适配脚本（新版 login.account.rakuten.com）
  *
@@ -211,27 +217,7 @@ const getCurrentPageState = ():
 
 // 模拟输入（兼容 React/Elm 这类受控输入）
 const simulateInput = (input: HTMLInputElement, value: string) => {
-  input.focus()
-
-  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-    window.HTMLInputElement.prototype,
-    "value"
-  )?.set
-
-  if (nativeInputValueSetter) {
-    nativeInputValueSetter.call(input, value)
-  } else {
-    input.value = value
-  }
-
-  // 重置 React 的 _valueTracker，使 React 能感知到值变化
-  const tracker = (input as any)._valueTracker
-  if (tracker) {
-    tracker.setValue("")
-  }
-
-  input.dispatchEvent(new Event("input", { bubbles: true }))
-  input.dispatchEvent(new Event("change", { bubbles: true }))
+  setInputValueAndNotify(input, value)
   input.dispatchEvent(new FocusEvent("blur", { bubbles: false }))
   input.blur()
 }
@@ -291,7 +277,7 @@ const submitClosestForm = (input?: HTMLInputElement | null): boolean => {
 const clickSubmitWithRetry = (
   input?: HTMLInputElement | null,
   maxAttempts = 6,
-  interval = 700
+  interval = RAKUTEN_MEMBER_RETRY_INTERVAL_MS
 ) => {
   let attempt = 0
   const tryClick = () => {
@@ -318,9 +304,7 @@ const clickSubmitWithRetry = (
     if (attempt < maxAttempts) {
       setTimeout(tryClick, interval)
     } else {
-      console.log(
-        "[Rakuten Member Login] Submit action failed after retries"
-      )
+      console.log("[Rakuten Member Login] Submit action failed after retries")
     }
   }
   tryClick()
@@ -331,7 +315,7 @@ const fillInputAndSubmit = (input: HTMLInputElement, value: string) => {
 
   setTimeout(() => {
     clickSubmitWithRetry(input)
-  }, 1200)
+  }, RAKUTEN_MEMBER_SUBMIT_DELAY_MS)
 }
 
 // 主要的自动填充逻辑
