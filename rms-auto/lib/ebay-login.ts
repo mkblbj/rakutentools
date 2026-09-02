@@ -2,6 +2,7 @@ export const EBAY_LOGIN_TASK_KEY = "ebayAutoLoginTask"
 export const EBAY_LOGIN_TIMEOUT_MS = 10 * 60 * 1000
 export const EBAY_SELLER_HUB_URL = "https://www.ebay.com/sh/ovw"
 export const EBAY_LOGIN_FLOW_MARKER_PARAM = "ebayAutoLoginStartedAt"
+export const EBAY_LOGIN_WINDOW_NAME_PREFIX = "__rms_auto_ebay_login__:"
 
 export type EbayLoginPhase =
   | "start"
@@ -66,6 +67,15 @@ export const createEbaySellerHubUrl = (task: EbayLoginTask): string => {
   return url.toString()
 }
 
+export const createEbayLoginWindowName = (task: EbayLoginTask): string => {
+  return `${EBAY_LOGIN_WINDOW_NAME_PREFIX}${task.startedAt}`
+}
+
+export const isEbayLoginWindowNameForTask = (
+  value: string,
+  task: EbayLoginTask
+): boolean => value === createEbayLoginWindowName(task)
+
 const isEbaySellerHubUrlForTask = (
   value: string,
   task: EbayLoginTask
@@ -107,6 +117,7 @@ const hasEbaySellerHubReturnUrlForTask = (
 export const isEbayLoginTaskPage = (
   currentUrl: string,
   referrer: string,
+  windowName: string,
   task: EbayLoginTask
 ): boolean => {
   try {
@@ -115,12 +126,16 @@ export const isEbayLoginTaskPage = (
       return isEbaySellerHubUrlForTask(currentUrl, task)
     }
     if (url.hostname === "signin.ebay.com") {
-      return hasEbaySellerHubReturnUrlForTask(currentUrl, task)
+      return (
+        hasEbaySellerHubReturnUrlForTask(currentUrl, task) ||
+        isEbayLoginWindowNameForTask(windowName, task)
+      )
     }
     return (
       url.hostname === "pages.ebay.com" &&
       url.pathname.startsWith("/SignOutConfirm") &&
-      isEbaySellerHubUrlForTask(referrer, task)
+      (isEbaySellerHubUrlForTask(referrer, task) ||
+        isEbayLoginWindowNameForTask(windowName, task))
     )
   } catch {
     return false

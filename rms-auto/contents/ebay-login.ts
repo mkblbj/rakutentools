@@ -4,12 +4,14 @@ import { isCompleteEbayShop, readLocalConfig } from "~lib/config"
 import {
   canSubmitIdentifier,
   canSubmitPassword,
+  createEbayLoginWindowName,
   createEbaySellerHubUrl,
   EBAY_LOGIN_TASK_KEY,
   EBAY_LOGIN_TIMEOUT_MS,
   isEbayLoginCompletionPhase,
   isEbayLoginTaskExpired,
   isEbayLoginTaskPage,
+  isEbayLoginWindowNameForTask,
   normalizeEbayLoginTask,
   withEbayLoginPhase,
   type EbayLoginPhase,
@@ -97,18 +99,73 @@ const isVisible = (element: HTMLElement): boolean => {
   )
 }
 
+const hasVisibleElement = (selector: string): boolean => {
+  return Array.from(document.querySelectorAll<HTMLElement>(selector)).some(
+    isVisible
+  )
+}
+
+const hasNormalPasswordPage = (
+  password: HTMLInputElement,
+  signInButton: HTMLElement
+): boolean => {
+  const form = password.closest("form")
+  if (
+    !form ||
+    signInButton.closest("form") !== form ||
+    !isVisible(password) ||
+    !isVisible(signInButton)
+  ) {
+    return false
+  }
+
+  const hasNormalHeading = Array.from(
+    document.querySelectorAll<HTMLElement>("h1, h2, [role='heading']")
+  ).some(
+    (heading) =>
+      isVisible(heading) &&
+      /^(sign in|welcome)\b/i.test(heading.textContent?.trim() ?? "")
+  )
+
+  const hasBlockingControl = hasVisibleElement(
+    [
+      "dialog",
+      "[role='dialog']",
+      "iframe[src*='auth' i]",
+      "iframe[src*='verify' i]",
+      "iframe[src*='challenge' i]",
+      "iframe[src*='captcha' i]",
+      "iframe[src*='2fa' i]",
+      "input[autocomplete='one-time-code']",
+      "input[name*='otp' i]",
+      "input[id*='otp' i]",
+      "input[name*='code' i]",
+      "input[id*='code' i]",
+      "input[name*='verification' i]",
+      "input[id*='verification' i]",
+      "[id*='challenge' i]",
+      "[class*='challenge' i]"
+    ].join(", ")
+  )
+
+  return hasNormalHeading && !hasManualChallenge() && !hasBlockingControl
+}
+
 const savePhase = async (task: EbayLoginTask, phase: EbayLoginPhase) => {
   await chrome.storage.local.set({
     [EBAY_LOGIN_TASK_KEY]: withEbayLoginPhase(task, phase)
   })
 }
 
-const clearTask = async () => {
+const clearTask = async (task?: EbayLoginTask) => {
   if (expiryTimer !== null) {
     window.clearTimeout(expiryTimer)
     expiryTimer = null
   }
   await chrome.storage.local.remove(EBAY_LOGIN_TASK_KEY)
+  if (task && isEbayLoginWindowNameForTask(window.name, task)) {
+    window.name = ""
+  }
 }
 
 let processing = false
@@ -137,11 +194,12 @@ const scheduleExpiryCleanup = (task: EbayLoginTask) => {
         isEbayLoginTaskPage(
           window.location.href,
           document.referrer,
+          window.name,
           currentTask
         ) &&
         isEbayLoginTaskExpired(currentTask)
       ) {
-        await clearTask()
+        await clearTask(currentTask)
         observer?.disconnect()
       }
     })()
@@ -163,13 +221,23 @@ const processPage = async () => {
       observer?.disconnect()
       return
     }
-    if (!isEbayLoginTaskPage(window.location.href, document.referrer, task)) {
+    if (
+      !isEbayLoginTaskPage(
+        window.location.href,
+        document.referrer,
+        window.name,
+        task
+      )
+    ) {
       cancelExpiryCleanup()
       observer?.disconnect()
       return
     }
+    if (!isEbayLoginWindowNameForTask(window.name, task)) {
+      window.name = createEbayLoginWindowName(task)
+    }
     if (isEbayLoginTaskExpired(task)) {
-      await clearTask()
+      await clearTask(task)
       observer?.disconnect()
       return
     }
@@ -178,7 +246,7 @@ const processPage = async () => {
     const local = await readLocalConfig()
     const shop = local.ebayShops[task.shopIndex]
     if (!shop || !isCompleteEbayShop(shop)) {
-      await clearTask()
+      await clearTask(task)
       observer?.disconnect()
       return
     }
@@ -194,7 +262,7 @@ const processPage = async () => {
 
     if (host === "www.ebay.com" && path.startsWith("/sh/")) {
       if (isEbayLoginCompletionPhase(task)) {
-        await clearTask()
+        await clearTask(task)
         observer?.disconnect()
         return
       }
@@ -245,12 +313,13 @@ const processPage = async () => {
 
     const password = document.querySelector<HTMLInputElement>("#pass")
     const signInButton = document.querySelector<HTMLElement>("#sgnBt")
+    const isNormalPasswordPage = Boolean(
+      password && signInButton && hasNormalPasswordPage(password, signInButton)
+    )
     if (
       password &&
       signInButton &&
-      isVisible(password) &&
-      isVisible(signInButton) &&
-      !hasManualChallenge() &&
+      isNormalPasswordPage &&
       canSubmitPassword(task)
     ) {
       await savePhase(task, "passwordSubmitted")
@@ -259,7 +328,12 @@ const processPage = async () => {
       return
     }
 
-    if (password && canSubmitIdentifier(task) && !switchAccountClicked) {
+    if (
+      password &&
+      isNormalPasswordPage &&
+      canSubmitIdentifier(task) &&
+      !switchAccountClicked
+    ) {
       const switchAccount = findExactAction([
         "Switch account",
         "Not you?",

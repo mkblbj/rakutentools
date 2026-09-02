@@ -139,12 +139,13 @@ test("eBay flow marker only authorizes pages for its login task", () => {
     sellerHubUrl,
     "https://www.ebay.com/sh/ovw?ebayAutoLoginStartedAt=1000000"
   )
-  assert.equal(login.isEbayLoginTaskPage(sellerHubUrl, "", task), true)
+  assert.equal(login.isEbayLoginTaskPage(sellerHubUrl, "", "", task), true)
   assert.equal(
     login.isEbayLoginTaskPage(
       `https://signin.ebay.com/ws/eBayISAPI.dll?ru=${encodeURIComponent(
         sellerHubUrl
       )}`,
+      "",
       "",
       task
     ),
@@ -154,13 +155,44 @@ test("eBay flow marker only authorizes pages for its login task", () => {
     login.isEbayLoginTaskPage(
       "https://pages.ebay.com/SignOutConfirm",
       sellerHubUrl,
+      "",
       task
     ),
     true
   )
   assert.equal(
-    login.isEbayLoginTaskPage("https://www.ebay.com/sh/ovw", "", task),
+    login.isEbayLoginTaskPage("https://www.ebay.com/sh/ovw", "", "", task),
     false
   )
-  assert.equal(login.isEbayLoginTaskPage(sellerHubUrl, "", otherTask), false)
+  assert.equal(
+    login.isEbayLoginTaskPage(sellerHubUrl, "", "", otherTask),
+    false
+  )
+})
+
+test("eBay window name authorizes origin-only SignOutConfirm referrers", () => {
+  const login = loadTsModule("lib/ebay-login.ts")
+  const task = login.createEbayLoginTask(1, 1_000_000)
+  const otherTask = login.createEbayLoginTask(1, 1_000_001)
+  const windowName = login.createEbayLoginWindowName(task)
+
+  assert.equal(windowName, "__rms_auto_ebay_login__:1000000")
+  assert.equal(
+    login.isEbayLoginTaskPage(
+      "https://pages.ebay.com/SignOutConfirm",
+      "https://www.ebay.com/",
+      windowName,
+      task
+    ),
+    true
+  )
+  assert.equal(
+    login.isEbayLoginTaskPage(
+      "https://pages.ebay.com/SignOutConfirm",
+      "https://www.ebay.com/",
+      login.createEbayLoginWindowName(otherTask),
+      task
+    ),
+    false
+  )
 })
