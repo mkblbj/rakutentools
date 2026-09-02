@@ -1,8 +1,9 @@
-export const CONFIG_VERSION = "0.1.4"
+export const CONFIG_VERSION = "0.2.0"
 export const RMS_SHOP_COUNT = 20
 export const MERCARI_LINK_COUNT = 5
 export const AUPAY_SHOP_COUNT = 5
 export const TEMU_SHOP_COUNT = 5
+export const EBAY_SHOP_COUNT = 4
 export const SYNC_SETTINGS_KEY = "rmsSyncSettings"
 
 export interface Shop {
@@ -30,6 +31,12 @@ export interface TemuShop {
   password: string
 }
 
+export interface EbayShop {
+  name: string
+  loginId: string
+  password: string
+}
+
 export interface ExportData {
   version: string
   exportDate: string
@@ -37,6 +44,7 @@ export interface ExportData {
   mercariLinks?: MercariLink[]
   aupayShops?: AupayShop[]
   temuShops?: TemuShop[]
+  ebayShops?: EbayShop[]
 }
 
 export type SyncStatus = "idle" | "success" | "error"
@@ -55,6 +63,7 @@ export interface LocalConfigData {
   mercariLinks: MercariLink[]
   aupayShops: AupayShop[]
   temuShops: TemuShop[]
+  ebayShops: EbayShop[]
 }
 
 const toString = (value: unknown): string => {
@@ -83,6 +92,12 @@ export const createEmptyAupayShop = (): AupayShop => ({
 export const createEmptyTemuShop = (): TemuShop => ({
   name: "",
   phone: "",
+  password: ""
+})
+
+export const createEmptyEbayShop = (): EbayShop => ({
+  name: "",
+  loginId: "",
   password: ""
 })
 
@@ -139,6 +154,24 @@ const normalizeTemuShop = (value: unknown): TemuShop => {
   }
 }
 
+const normalizeEbayShop = (value: unknown): EbayShop => {
+  if (!value || typeof value !== "object") return createEmptyEbayShop()
+  const source = value as Partial<EbayShop>
+  return {
+    name: toString(source.name),
+    loginId: toString(source.loginId),
+    password: toString(source.password)
+  }
+}
+
+export const hasAnyEbayField = (shop: EbayShop): boolean => {
+  return Boolean(shop.name || shop.loginId || shop.password)
+}
+
+export const isCompleteEbayShop = (shop: EbayShop): boolean => {
+  return Boolean(shop.name && shop.loginId && shop.password)
+}
+
 const normalizeFixedLengthArray = <T>(
   value: unknown,
   length: number,
@@ -191,22 +224,36 @@ export const normalizeExportData = (
       TEMU_SHOP_COUNT,
       normalizeTemuShop,
       createEmptyTemuShop
+    ),
+    ebayShops: normalizeFixedLengthArray(
+      source.ebayShops,
+      EBAY_SHOP_COUNT,
+      normalizeEbayShop,
+      createEmptyEbayShop
     )
   }
 }
 
-export const buildExportData = (
-  data: Omit<LocalConfigData, "rmsPinCode">
-): ExportData => {
-  return {
-    version: CONFIG_VERSION,
-    exportDate: new Date().toISOString(),
-    shops: data.shops,
-    mercariLinks: data.mercariLinks,
-    aupayShops: data.aupayShops,
-    temuShops: data.temuShops
-  }
+type ExportConfigInput = Omit<LocalConfigData, "rmsPinCode" | "ebayShops"> & {
+  ebayShops?: EbayShop[]
 }
+
+export const buildExportData = (
+  data: ExportConfigInput
+): ExportData => ({
+  version: CONFIG_VERSION,
+  exportDate: new Date().toISOString(),
+  shops: data.shops,
+  mercariLinks: data.mercariLinks,
+  aupayShops: data.aupayShops,
+  temuShops: data.temuShops,
+  ebayShops: normalizeFixedLengthArray(
+    data.ebayShops,
+    EBAY_SHOP_COUNT,
+    normalizeEbayShop,
+    createEmptyEbayShop
+  )
+})
 
 export const defaultSyncSettings = (): SyncSettings => ({
   enabled: false,
@@ -241,7 +288,8 @@ export const readLocalConfig = async (): Promise<LocalConfigData> => {
     "rmsPinCode",
     "mercariLinks",
     "aupayShops",
-    "temuShops"
+    "temuShops",
+    "ebayShops"
   ])
 
   return {
@@ -269,6 +317,12 @@ export const readLocalConfig = async (): Promise<LocalConfigData> => {
       TEMU_SHOP_COUNT,
       normalizeTemuShop,
       createEmptyTemuShop
+    ),
+    ebayShops: normalizeFixedLengthArray(
+      data.ebayShops,
+      EBAY_SHOP_COUNT,
+      normalizeEbayShop,
+      createEmptyEbayShop
     )
   }
 }
@@ -280,7 +334,8 @@ export const writeLocalConfig = async (
     rms: data.shops,
     mercariLinks: data.mercariLinks,
     aupayShops: data.aupayShops,
-    temuShops: data.temuShops
+    temuShops: data.temuShops,
+    ebayShops: data.ebayShops
   })
 }
 

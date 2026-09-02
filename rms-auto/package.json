@@ -1,12 +1,14 @@
 {
   "name": "rms-auto-login",
   "displayName": "RMSログイン自動化",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "RMSのログインをできるだけ自動化してみる",
   "author": "",
   "scripts": {
     "dev": "plasmo dev",
     "dev:firefox": "plasmo dev --target=firefox-mv2",
+    "test": "node --test test/*.test.js",
+    "typecheck": "tsc --noEmit",
     "build": "plasmo build",
     "build:firefox": "plasmo build --target=firefox-mv2",
     "build:all": "plasmo build && plasmo build --target=firefox-mv2",
