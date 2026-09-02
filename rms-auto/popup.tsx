@@ -7,15 +7,22 @@ import { useEffect, useState } from "react"
 
 import {
   defaultSyncSettings,
+  isCompleteEbayShop,
   isSyncConfigured,
   readLocalConfig,
   readSyncSettings,
   type AupayShop,
+  type EbayShop,
   type MercariLink,
   type Shop,
   type SyncSettings,
   type TemuShop
 } from "~lib/config"
+import {
+  createEbayLoginTask,
+  EBAY_LOGIN_TASK_KEY,
+  EBAY_SELLER_HUB_URL
+} from "~lib/ebay-login"
 import { syncRemoteConfigToLocal } from "~lib/sync"
 
 function IndexPopup() {
@@ -23,6 +30,7 @@ function IndexPopup() {
   const [mercariLinks, setMercariLinks] = useState<MercariLink[]>([])
   const [aupayShops, setAupayShops] = useState<AupayShop[]>([])
   const [temuShops, setTemuShops] = useState<TemuShop[]>([])
+  const [ebayShops, setEbayShops] = useState<EbayShop[]>([])
   const [syncSettings, setSyncSettings] = useState<SyncSettings>(
     defaultSyncSettings()
   )
@@ -67,6 +75,7 @@ function IndexPopup() {
         setMercariLinks(localData.mercariLinks)
         setAupayShops(localData.aupayShops)
         setTemuShops(localData.temuShops)
+        setEbayShops(localData.ebayShops)
       } finally {
         if (active) {
           setLoading(false)
@@ -104,6 +113,13 @@ function IndexPopup() {
     })
   }
 
+  const openEbay = async (shopIndex: number) => {
+    await chrome.storage.local.set({
+      [EBAY_LOGIN_TASK_KEY]: createEbayLoginTask(shopIndex)
+    })
+    chrome.tabs.create({ url: EBAY_SELLER_HUB_URL })
+  }
+
   const openOptions = () => {
     chrome.runtime.openOptionsPage()
   }
@@ -118,6 +134,9 @@ function IndexPopup() {
   const validTemuShops = temuShops
     .map((shop, index) => ({ shop, index }))
     .filter(({ shop }) => Boolean(shop.name && shop.phone))
+  const validEbayShops = ebayShops
+    .map((shop, index) => ({ shop, index }))
+    .filter(({ shop }) => isCompleteEbayShop(shop))
 
   if (loading) {
     return (
@@ -513,10 +532,35 @@ function IndexPopup() {
         </div>
       ) : null}
 
+      {validEbayShops.length > 0 ? (
+        <div style={{ padding: "12px 12px 0" }}>
+          <div
+            style={{ fontSize: "11px", fontWeight: "600", color: "#718096" }}>
+            eBay Seller Hub
+          </div>
+          {validEbayShops.map(({ shop, index }) => (
+            <div
+              key={`ebay-${index}`}
+              onClick={() => void openEbay(index)}
+              style={{
+                marginTop: "8px",
+                padding: "12px 16px",
+                background: "white",
+                border: "1px solid #a9bdf8",
+                borderRadius: "8px",
+                cursor: "pointer"
+              }}>
+              {shop.name}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       {validShops.length === 0 &&
       validMercariLinks.length === 0 &&
       validAupayShops.length === 0 &&
-      validTemuShops.length === 0 ? (
+      validTemuShops.length === 0 &&
+      validEbayShops.length === 0 ? (
         <div style={{ padding: "12px" }}>
           <div
             style={{
@@ -559,7 +603,8 @@ function IndexPopup() {
       {validShops.length > 0 ||
       validMercariLinks.length > 0 ||
       validAupayShops.length > 0 ||
-      validTemuShops.length > 0 ? (
+      validTemuShops.length > 0 ||
+      validEbayShops.length > 0 ? (
         <div
           style={{
             padding: "8px 16px 12px",
@@ -573,7 +618,8 @@ function IndexPopup() {
             validMercariLinks.length > 0 &&
               `メルカリ ${validMercariLinks.length}`,
             validAupayShops.length > 0 && `auPay ${validAupayShops.length}`,
-            validTemuShops.length > 0 && `TEMU ${validTemuShops.length}`
+            validTemuShops.length > 0 && `TEMU ${validTemuShops.length}`,
+            validEbayShops.length > 0 && `eBay ${validEbayShops.length}`
           ]
             .filter(Boolean)
             .join(" / ")}

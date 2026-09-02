@@ -3,14 +3,19 @@ import { useEffect, useRef, useState } from "react"
 import {
   buildExportData,
   createEmptyAupayShop,
+  createEmptyEbayShop,
   createEmptyMercariLink,
   createEmptyShop,
   createEmptyTemuShop,
+  EBAY_SHOP_COUNT,
+  hasAnyEbayField,
+  isCompleteEbayShop,
   normalizeExportData,
   readLocalConfig,
   readSyncSettings,
   writeSyncSettings,
   type AupayShop,
+  type EbayShop,
   type MercariLink,
   type Shop,
   type SyncSettings,
@@ -128,6 +133,9 @@ function OptionsPage() {
   const [temuShops, setTemuShops] = useState<TemuShop[]>(() =>
     Array.from({ length: 5 }, () => createEmptyTemuShop())
   )
+  const [ebayShops, setEbayShops] = useState<EbayShop[]>(() =>
+    Array.from({ length: EBAY_SHOP_COUNT }, () => createEmptyEbayShop())
+  )
 
   const [visibleCount, setVisibleCount] = useState(1)
   const [visibleMercariCount, setVisibleMercariCount] = useState(1)
@@ -144,11 +152,13 @@ function OptionsPage() {
     mercariLinks: MercariLink[]
     aupayShops: AupayShop[]
     temuShops: TemuShop[]
+    ebayShops: EbayShop[]
   }) => {
     setLocalShops(data.shops)
     setMercariLinks(data.mercariLinks)
     setAupayShops(data.aupayShops)
     setTemuShops(data.temuShops)
+    setEbayShops(data.ebayShops)
     setVisibleCount(Math.max(getFilledCount(data.shops, hasAnyRmsField), 1))
     setVisibleMercariCount(
       Math.max(getFilledCount(data.mercariLinks, hasAnyMercariField), 1)
@@ -159,6 +169,18 @@ function OptionsPage() {
     setVisibleTemuCount(
       Math.max(getFilledCount(data.temuShops, hasAnyTemuField), 1)
     )
+  }
+
+  const updateEbayShop = (
+    index: number,
+    field: keyof EbayShop,
+    value: string
+  ) => {
+    setEbayShops((current) => {
+      const next = [...current]
+      next[index] = { ...next[index], [field]: value }
+      return next
+    })
   }
 
   const refreshFromStorage = async () => {
@@ -347,12 +369,21 @@ function OptionsPage() {
       }
     }
 
+    for (let index = 0; index < ebayShops.length; index += 1) {
+      const shop = ebayShops[index]
+      if (hasAnyEbayField(shop) && !isCompleteEbayShop(shop)) {
+        alert(`eBay No.${index + 1} に未入力の項目があります。`)
+        return
+      }
+    }
+
     await chrome.storage.local.set({
       rms: localShops,
       rmsPinCode: pin,
       mercariLinks,
       aupayShops,
-      temuShops
+      temuShops,
+      ebayShops
     })
 
     setLocalPinCode(pin)
@@ -364,7 +395,8 @@ function OptionsPage() {
       shops: localShops,
       mercariLinks,
       aupayShops,
-      temuShops
+      temuShops,
+      ebayShops
     })
   }
 
@@ -447,6 +479,7 @@ function OptionsPage() {
         mercariLinks: imported.mercariLinks,
         aupayShops: imported.aupayShops,
         temuShops: imported.temuShops,
+        ebayShops: imported.ebayShops,
         rmsPinCode: localPinCode || pin
       })
 
@@ -548,15 +581,12 @@ function OptionsPage() {
   }
 
   const handleDebug = async () => {
-    const data = await chrome.storage.local.get(null)
-    console.log("=== Storage Debug ===")
-    console.log("All storage data:", data)
-    console.log("rms type:", typeof data.rms)
-    console.log("rms isArray:", Array.isArray(data.rms))
-    console.log("rms length:", data.rms?.length)
-    console.log("rmsPinCode:", data.rmsPinCode)
-    console.log("rmsSyncSettings:", data.rmsSyncSettings)
-    alert("デバッグ情報をコンソールに出力しました（F12 で確認）。")
+    const data = await readLocalConfig()
+    console.log({
+      rmsConfigured: data.shops.filter(hasAnyRmsField).length,
+      ebayConfigured: data.ebayShops.filter(isCompleteEbayShop).length
+    })
+    alert("デバッグ概要を出力しました（認証情報は含みません）。")
   }
 
   const handleSaveSyncSettings = async () => {
@@ -1542,6 +1572,52 @@ function OptionsPage() {
               ➕ TEMU店舗を追加 ({5 - visibleTemuCount}件まで追加可能)
             </button>
           ) : null}
+        </div>
+
+        <div style={{ ...cardStyle, marginTop: "24px" }}>
+          <h2 style={{ fontSize: "18px", marginBottom: "16px" }}>
+            eBay Seller Hub（自動ログイン）
+          </h2>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {ebayShops.map((shop, index) => (
+              <div
+                key={`ebay-${index}`}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "40px 1fr 1fr 1fr",
+                  gap: "12px",
+                  alignItems: "center"
+                }}>
+                <strong>{index + 1}</strong>
+                <input
+                  value={shop.name}
+                  onChange={(event) =>
+                    updateEbayShop(index, "name", event.target.value)
+                  }
+                  placeholder="店舗名"
+                  style={inputStyle}
+                />
+                <input
+                  value={shop.loginId}
+                  onChange={(event) =>
+                    updateEbayShop(index, "loginId", event.target.value)
+                  }
+                  placeholder="メールアドレスまたはユーザー名"
+                  style={inputStyle}
+                />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={shop.password}
+                  onChange={(event) =>
+                    updateEbayShop(index, "password", event.target.value)
+                  }
+                  placeholder="パスワード"
+                  style={inputStyle}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </fieldset>
 
