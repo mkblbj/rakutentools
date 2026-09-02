@@ -20,8 +20,8 @@ import {
 } from "~lib/config"
 import {
   createEbayLoginTask,
-  EBAY_LOGIN_TASK_KEY,
-  EBAY_SELLER_HUB_URL
+  createEbaySellerHubUrl,
+  EBAY_LOGIN_TASK_KEY
 } from "~lib/ebay-login"
 import { syncRemoteConfigToLocal } from "~lib/sync"
 
@@ -114,10 +114,11 @@ function IndexPopup() {
   }
 
   const openEbay = async (shopIndex: number) => {
+    const task = createEbayLoginTask(shopIndex)
     await chrome.storage.local.set({
-      [EBAY_LOGIN_TASK_KEY]: createEbayLoginTask(shopIndex)
+      [EBAY_LOGIN_TASK_KEY]: task
     })
-    chrome.tabs.create({ url: EBAY_SELLER_HUB_URL })
+    chrome.tabs.create({ url: createEbaySellerHubUrl(task) })
   }
 
   const openOptions = () => {

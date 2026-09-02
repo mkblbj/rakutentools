@@ -19,6 +19,7 @@ const loadTsModule = (relativePath) => {
   vm.runInNewContext(outputText, {
     Date,
     Object,
+    URL,
     console,
     exports: module.exports,
     module,
@@ -100,13 +101,13 @@ test("login tasks validate phases and expire after ten minutes", () => {
   assert.equal(login.canSubmitIdentifier(task), true)
   assert.equal(login.canSubmitPassword(task), false)
   assert.equal(
-    login.canSubmitPassword(login.withEbayLoginPhase(task, "identifierSubmitted")),
+    login.canSubmitPassword(
+      login.withEbayLoginPhase(task, "identifierSubmitted")
+    ),
     true
   )
   assert.equal(
-    login.isEbayLoginCompletionPhase(
-      login.withEbayLoginPhase(task, "manual")
-    ),
+    login.isEbayLoginCompletionPhase(login.withEbayLoginPhase(task, "manual")),
     true
   )
   assert.equal(
@@ -118,4 +119,48 @@ test("login tasks validate phases and expire after ten minutes", () => {
     true
   )
   assert.equal(login.normalizeEbayLoginTask({ phase: "bad" }), null)
+  assert.equal(
+    login.normalizeEbayLoginTask({
+      shopIndex: 0,
+      phase: "start",
+      startedAt: Infinity
+    }),
+    null
+  )
+})
+
+test("eBay flow marker only authorizes pages for its login task", () => {
+  const login = loadTsModule("lib/ebay-login.ts")
+  const task = login.createEbayLoginTask(1, 1_000_000)
+  const otherTask = login.createEbayLoginTask(1, 1_000_001)
+  const sellerHubUrl = login.createEbaySellerHubUrl(task)
+
+  assert.equal(
+    sellerHubUrl,
+    "https://www.ebay.com/sh/ovw?ebayAutoLoginStartedAt=1000000"
+  )
+  assert.equal(login.isEbayLoginTaskPage(sellerHubUrl, "", task), true)
+  assert.equal(
+    login.isEbayLoginTaskPage(
+      `https://signin.ebay.com/ws/eBayISAPI.dll?ru=${encodeURIComponent(
+        sellerHubUrl
+      )}`,
+      "",
+      task
+    ),
+    true
+  )
+  assert.equal(
+    login.isEbayLoginTaskPage(
+      "https://pages.ebay.com/SignOutConfirm",
+      sellerHubUrl,
+      task
+    ),
+    true
+  )
+  assert.equal(
+    login.isEbayLoginTaskPage("https://www.ebay.com/sh/ovw", "", task),
+    false
+  )
+  assert.equal(login.isEbayLoginTaskPage(sellerHubUrl, "", otherTask), false)
 })

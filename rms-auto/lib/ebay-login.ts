@@ -1,6 +1,7 @@
 export const EBAY_LOGIN_TASK_KEY = "ebayAutoLoginTask"
 export const EBAY_LOGIN_TIMEOUT_MS = 10 * 60 * 1000
 export const EBAY_SELLER_HUB_URL = "https://www.ebay.com/sh/ovw"
+export const EBAY_LOGIN_FLOW_MARKER_PARAM = "ebayAutoLoginStartedAt"
 
 export type EbayLoginPhase =
   | "start"
@@ -46,7 +47,8 @@ export const normalizeEbayLoginTask = (
     shopIndex < 0 ||
     shopIndex >= 4 ||
     !phases.includes(phase as EbayLoginPhase) ||
-    typeof startedAt !== "number"
+    typeof startedAt !== "number" ||
+    !Number.isFinite(startedAt)
   ) {
     return null
   }
@@ -57,6 +59,73 @@ export const withEbayLoginPhase = (
   task: EbayLoginTask,
   phase: EbayLoginPhase
 ): EbayLoginTask => ({ ...task, phase })
+
+export const createEbaySellerHubUrl = (task: EbayLoginTask): string => {
+  const url = new URL(EBAY_SELLER_HUB_URL)
+  url.searchParams.set(EBAY_LOGIN_FLOW_MARKER_PARAM, String(task.startedAt))
+  return url.toString()
+}
+
+const isEbaySellerHubUrlForTask = (
+  value: string,
+  task: EbayLoginTask
+): boolean => {
+  try {
+    const url = new URL(value)
+    return (
+      url.hostname === "www.ebay.com" &&
+      url.pathname.startsWith("/sh/") &&
+      url.searchParams.get(EBAY_LOGIN_FLOW_MARKER_PARAM) ===
+        String(task.startedAt)
+    )
+  } catch {
+    return false
+  }
+}
+
+const hasEbaySellerHubReturnUrlForTask = (
+  value: string,
+  task: EbayLoginTask,
+  depth = 0
+): boolean => {
+  if (isEbaySellerHubUrlForTask(value, task)) return true
+  if (depth >= 3) return false
+
+  try {
+    const url = new URL(value)
+    const returnUrl = url.searchParams.get("ru")
+    return (
+      url.hostname === "signin.ebay.com" &&
+      Boolean(returnUrl) &&
+      hasEbaySellerHubReturnUrlForTask(returnUrl, task, depth + 1)
+    )
+  } catch {
+    return false
+  }
+}
+
+export const isEbayLoginTaskPage = (
+  currentUrl: string,
+  referrer: string,
+  task: EbayLoginTask
+): boolean => {
+  try {
+    const url = new URL(currentUrl)
+    if (url.hostname === "www.ebay.com" && url.pathname.startsWith("/sh/")) {
+      return isEbaySellerHubUrlForTask(currentUrl, task)
+    }
+    if (url.hostname === "signin.ebay.com") {
+      return hasEbaySellerHubReturnUrlForTask(currentUrl, task)
+    }
+    return (
+      url.hostname === "pages.ebay.com" &&
+      url.pathname.startsWith("/SignOutConfirm") &&
+      isEbaySellerHubUrlForTask(referrer, task)
+    )
+  } catch {
+    return false
+  }
+}
 
 export const canSubmitIdentifier = (task: EbayLoginTask): boolean => {
   return task.phase === "start" || task.phase === "signingOut"
