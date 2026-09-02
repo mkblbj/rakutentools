@@ -191,6 +191,7 @@ export interface EbayManualChallengeSignal {
   visible: boolean
   text?: string
   id?: string
+  className?: string
   name?: string
   src?: string
   ariaLabel?: string
@@ -202,6 +203,7 @@ export const isEbayManualChallengeSignal = ({
   visible,
   text = "",
   id = "",
+  className = "",
   name = "",
   src = "",
   ariaLabel = "",
@@ -211,7 +213,71 @@ export const isEbayManualChallengeSignal = ({
   if (!visible) return false
 
   return /\b(?:captcha|challenge|verify|verification|2fa|otp|sms|one[- ]?time[- ]?code|passkey|authenticator|security[ -]check|security[ -]code)\b/i.test(
-    [text, id, name, src, ariaLabel, title, autocomplete].join(" ")
+    [text, id, className, name, src, ariaLabel, title, autocomplete].join(
+      " "
+    )
+  )
+}
+
+type EbayComputedStyle = Pick<
+  CSSStyleDeclaration,
+  "display" | "visibility" | "opacity"
+>
+
+type EbayGetComputedStyle = (element: Element) => EbayComputedStyle
+
+export const isEbayElementVisible = (
+  element: Element,
+  getComputedStyle: EbayGetComputedStyle
+): boolean => {
+  const style = getComputedStyle(element)
+  return (
+    style.display !== "none" &&
+    style.visibility !== "hidden" &&
+    style.opacity !== "0" &&
+    element.getClientRects().length > 0
+  )
+}
+
+const ebayManualChallengeSelector = [
+  "input",
+  "button",
+  "a[href]",
+  "iframe",
+  "h1",
+  "h2",
+  "[role='heading']",
+  "[role='button']",
+  "[id*='captcha' i]",
+  "[class*='captcha' i]",
+  "[id*='challenge' i]",
+  "[class*='challenge' i]",
+  "[id*='verify' i]",
+  "[class*='verify' i]",
+  "[id*='2fa' i]",
+  "[class*='2fa' i]"
+].join(", ")
+
+export const hasEbayManualChallengeOnPage = (
+  root: ParentNode,
+  pathname: string,
+  getComputedStyle: EbayGetComputedStyle
+): boolean => {
+  if (/(captcha|challenge|verify|2fa)/i.test(pathname)) return true
+
+  return Array.from(root.querySelectorAll<HTMLElement>(ebayManualChallengeSelector)).some(
+    (element) =>
+      isEbayManualChallengeSignal({
+        visible: isEbayElementVisible(element, getComputedStyle),
+        text: element.textContent ?? "",
+        id: element.id,
+        className: element.getAttribute("class") ?? "",
+        name: element.getAttribute("name") ?? "",
+        src: element.getAttribute("src") ?? "",
+        ariaLabel: element.getAttribute("aria-label") ?? "",
+        title: element.getAttribute("title") ?? "",
+        autocomplete: element.getAttribute("autocomplete") ?? ""
+      })
   )
 }
 

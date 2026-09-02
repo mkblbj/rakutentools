@@ -227,6 +227,119 @@ test("eBay manual challenge signals only block visible challenge controls", () =
   }
 })
 
+test("eBay manual challenge DOM boundary collects visible wrappers and controls", () => {
+  const login = loadTsModule("lib/ebay-login.ts")
+  const createElement = ({
+    id = "",
+    className = "",
+    text = "",
+    attributes = {},
+    display = "block",
+    visibility = "visible",
+    opacity = "1",
+    hasRect = true
+  } = {}) => ({
+    id,
+    textContent: text,
+    getAttribute: (name) => {
+      if (name === "class") return className || null
+      return attributes[name] ?? null
+    },
+    getClientRects: () => (hasRect ? [{}] : []),
+    style: { display, visibility, opacity }
+  })
+  const createRoot = (candidates) => ({
+    querySelectorAll: (selector) =>
+      candidates.flatMap(({ selectorPart, element }) =>
+        selector.includes(selectorPart) ? [element] : []
+      )
+  })
+  const getComputedStyle = (element) => element.style
+  const cases = [
+    {
+      name: "hidden verify wrapper does not block",
+      root: createRoot([
+        {
+          selectorPart: "[id*='verify' i]",
+          element: createElement({ id: "verify-challenge", display: "none" })
+        }
+      ]),
+      expected: false
+    },
+    {
+      name: "visible verify wrapper blocks",
+      root: createRoot([
+        {
+          selectorPart: "[id*='verify' i]",
+          element: createElement({ id: "verify-challenge" })
+        }
+      ]),
+      expected: true
+    },
+    {
+      name: "visible captcha class wrapper blocks",
+      root: createRoot([
+        {
+          selectorPart: "[class*='captcha' i]",
+          element: createElement({ className: "captcha-container" })
+        }
+      ]),
+      expected: true
+    },
+    {
+      name: "visible non-heading passkey button blocks",
+      root: createRoot([
+        {
+          selectorPart: "button",
+          element: createElement({ text: "Use a passkey" })
+        }
+      ]),
+      expected: true
+    },
+    {
+      name: "visible authenticator iframe blocks",
+      root: createRoot([
+        {
+          selectorPart: "iframe",
+          element: createElement({
+            attributes: { src: "https://signin.ebay.com/authenticator" }
+          })
+        }
+      ]),
+      expected: true
+    },
+    {
+      name: "ordinary Welcome password and sign-in controls do not block",
+      root: createRoot([
+        { selectorPart: "h1", element: createElement({ text: "Welcome back" }) },
+        {
+          selectorPart: "input",
+          element: createElement({ id: "pass", attributes: { name: "password" } })
+        },
+        { selectorPart: "button", element: createElement({ text: "Sign in" }) }
+      ]),
+      expected: false
+    }
+  ]
+
+  for (const { name, root, expected } of cases) {
+    assert.equal(
+      login.hasEbayManualChallengeOnPage(root, "/signin", getComputedStyle),
+      expected,
+      name
+    )
+  }
+  assert.equal(
+    login.isEbayNormalPasswordPageSignals({
+      passwordVisible: true,
+      signInVisible: true,
+      hasNormalHeading: false,
+      hasManualChallenge: false
+    }),
+    false
+  )
+})
+
 test("eBay flow marker only authorizes pages for its login task", () => {
   const login = loadTsModule("lib/ebay-login.ts")
   const task = login.createEbayLoginTask(1, 1_000_000)

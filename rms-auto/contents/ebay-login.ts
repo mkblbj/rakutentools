@@ -14,7 +14,8 @@ import {
   isEbayLoginTaskExpired,
   isEbayLoginTaskPage,
   isEbayLoginWindowNameForTask,
-  isEbayManualChallengeSignal,
+  hasEbayManualChallengeOnPage,
+  isEbayElementVisible,
   isEbayNormalPasswordPageSignals,
   normalizeEbayLoginTask,
   withEbayLoginPhase,
@@ -52,46 +53,15 @@ const findExactAction = (labels: string[]): HTMLElement | null => {
   )
 }
 
-const hasManualChallenge = (): boolean => {
-  if (/(captcha|challenge|verify|2fa)/i.test(window.location.pathname)) {
-    return true
-  }
-
-  return Array.from(
-    document.querySelectorAll<HTMLElement>(
-      [
-        "input",
-        "button",
-        "a[href]",
-        "[role='button']",
-        "iframe",
-        "h1",
-        "h2",
-        "[role='heading']"
-      ].join(", ")
-    )
-  ).some((element) =>
-    isEbayManualChallengeSignal({
-      visible: isVisible(element),
-      text: element.textContent ?? "",
-      id: element.id,
-      name: element.getAttribute("name") ?? "",
-      src: element.getAttribute("src") ?? "",
-      ariaLabel: element.getAttribute("aria-label") ?? "",
-      title: element.getAttribute("title") ?? "",
-      autocomplete: element.getAttribute("autocomplete") ?? ""
-    })
+const hasManualChallenge = (): boolean =>
+  hasEbayManualChallengeOnPage(
+    document,
+    window.location.pathname,
+    window.getComputedStyle
   )
-}
 
 const isVisible = (element: HTMLElement): boolean => {
-  const style = window.getComputedStyle(element)
-  return (
-    style.display !== "none" &&
-    style.visibility !== "hidden" &&
-    style.opacity !== "0" &&
-    element.getClientRects().length > 0
-  )
+  return isEbayElementVisible(element, window.getComputedStyle)
 }
 
 const hasNormalPasswordPage = (
