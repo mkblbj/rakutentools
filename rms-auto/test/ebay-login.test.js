@@ -179,6 +179,93 @@ test("normal Welcome password page is not wrongly rejected when its controls are
   )
 })
 
+test("eBay sign-in page action prioritizes switch account over hidden identifier remnants", () => {
+  const login = loadTsModule("lib/ebay-login.ts")
+  const cases = [
+    {
+      name: "start normal password page switches account before identifier remnants",
+      signals: {
+        phase: "start",
+        hasNormalPasswordPage: true,
+        identifierVisible: true,
+        continueVisible: true,
+        hasManualChallenge: false
+      },
+      expected: "switchAccount"
+    },
+    {
+      name: "signing out normal password page switches account",
+      signals: {
+        phase: "signingOut",
+        hasNormalPasswordPage: true,
+        identifierVisible: false,
+        continueVisible: false,
+        hasManualChallenge: false
+      },
+      expected: "switchAccount"
+    },
+    {
+      name: "submitted identifier normal password page submits password",
+      signals: {
+        phase: "identifierSubmitted",
+        hasNormalPasswordPage: true,
+        identifierVisible: false,
+        continueVisible: false,
+        hasManualChallenge: false
+      },
+      expected: "submitPassword"
+    },
+    {
+      name: "visible identifier page submits identifier",
+      signals: {
+        phase: "start",
+        hasNormalPasswordPage: false,
+        identifierVisible: true,
+        continueVisible: true,
+        hasManualChallenge: false
+      },
+      expected: "submitIdentifier"
+    },
+    {
+      name: "hidden identifier or continue controls do nothing",
+      signals: {
+        phase: "start",
+        hasNormalPasswordPage: false,
+        identifierVisible: false,
+        continueVisible: false,
+        hasManualChallenge: false
+      },
+      expected: "none"
+    },
+    {
+      name: "manual challenge does not choose an automatic action",
+      signals: {
+        phase: "start",
+        hasNormalPasswordPage: true,
+        identifierVisible: true,
+        continueVisible: true,
+        hasManualChallenge: true
+      },
+      expected: "none"
+    },
+    {
+      name: "manual phase does not choose an automatic action",
+      signals: {
+        phase: "manual",
+        hasNormalPasswordPage: true,
+        identifierVisible: true,
+        continueVisible: true,
+        hasManualChallenge: false
+      },
+      expected: "none"
+    }
+  ]
+
+  for (const { name, signals, expected } of cases) {
+    assert.equal(login.getEbaySignInPageAction(signals), expected, name)
+  }
+})
+
 test("eBay manual challenge signals only block visible challenge controls", () => {
   const login = loadTsModule("lib/ebay-login.ts")
   const cases = [

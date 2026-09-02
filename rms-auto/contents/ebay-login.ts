@@ -2,8 +2,6 @@ import type { PlasmoCSConfig } from "plasmo"
 
 import { isCompleteEbayShop, readLocalConfig } from "~lib/config"
 import {
-  canSubmitIdentifier,
-  canSubmitPassword,
   createEbayLoginWindowName,
   createEbaySellerHubUrl,
   EBAY_LOGIN_ACTIVE_MARKER_KEY,
@@ -14,6 +12,7 @@ import {
   isEbayLoginTaskExpired,
   isEbayLoginTaskPage,
   isEbayLoginWindowNameForTask,
+  getEbaySignInPageAction,
   hasEbayManualChallengeOnPage,
   isEbayElementVisible,
   isEbayNormalPasswordPageSignals,
@@ -66,7 +65,8 @@ const isVisible = (element: HTMLElement): boolean => {
 
 const hasNormalPasswordPage = (
   password: HTMLInputElement,
-  signInButton: HTMLElement
+  signInButton: HTMLElement,
+  hasManualChallenge: boolean
 ): boolean => {
   const hasNormalHeading = Array.from(
     document.querySelectorAll<HTMLElement>("h1, h2, [role='heading']")
@@ -80,7 +80,7 @@ const hasNormalPasswordPage = (
     passwordVisible: isVisible(password),
     signInVisible: isVisible(signInButton),
     hasNormalHeading,
-    hasManualChallenge: hasManualChallenge()
+    hasManualChallenge
   })
 }
 
@@ -258,39 +258,39 @@ const processPage = async () => {
       return
     }
 
-    if (hasManualChallenge()) {
-      await savePhase(task, "manual")
-      observer?.disconnect()
-      return
-    }
-
+    const password = document.querySelector<HTMLInputElement>("#pass")
+    const signInButton = document.querySelector<HTMLElement>("#sgnBt")
+    const manualChallenge = hasManualChallenge()
+    const isNormalPasswordPage = Boolean(
+      password &&
+        signInButton &&
+        hasNormalPasswordPage(password, signInButton, manualChallenge)
+    )
     const identifier = queryFirst<HTMLInputElement>([
       "#userid",
       "input[name='userid']",
       "input[autocomplete='username']"
     ])
     const continueButton = queryFirst<HTMLElement>(["#signin-continue-btn"])
-    if (identifier && continueButton && canSubmitIdentifier(task)) {
-      if (await savePhase(task, "identifierSubmitted")) {
-        if (!(await isTaskActive(task))) return
-        setInputValueAndNotify(identifier, shop.loginId)
-        if (await isTaskActive(task)) {
-          continueButton.click()
-        }
-      }
+    const action = getEbaySignInPageAction({
+      phase: task.phase,
+      hasNormalPasswordPage: isNormalPasswordPage,
+      identifierVisible: Boolean(identifier && isVisible(identifier)),
+      continueVisible: Boolean(continueButton && isVisible(continueButton)),
+      hasManualChallenge: manualChallenge
+    })
+
+    if (manualChallenge) {
+      await savePhase(task, "manual")
+      observer?.disconnect()
       return
     }
 
-    const password = document.querySelector<HTMLInputElement>("#pass")
-    const signInButton = document.querySelector<HTMLElement>("#sgnBt")
-    const isNormalPasswordPage = Boolean(
-      password && signInButton && hasNormalPasswordPage(password, signInButton)
-    )
     if (
+      action === "submitPassword" &&
       password &&
       signInButton &&
-      isNormalPasswordPage &&
-      canSubmitPassword(task)
+      isNormalPasswordPage
     ) {
       if (await savePhase(task, "passwordSubmitted")) {
         if (!(await isTaskActive(task))) return
@@ -302,12 +302,7 @@ const processPage = async () => {
       return
     }
 
-    if (
-      password &&
-      isNormalPasswordPage &&
-      canSubmitIdentifier(task) &&
-      !switchAccountClicked
-    ) {
+    if (action === "switchAccount" && !switchAccountClicked) {
       const switchAccount = findExactAction([
         "Switch account",
         "Not you?",
@@ -317,6 +312,21 @@ const processPage = async () => {
         if (await isTaskActive(task)) {
           switchAccountClicked = true
           switchAccount.click()
+        }
+      }
+      return
+    }
+
+    if (
+      action === "submitIdentifier" &&
+      identifier &&
+      continueButton
+    ) {
+      if (await savePhase(task, "identifierSubmitted")) {
+        if (!(await isTaskActive(task))) return
+        setInputValueAndNotify(identifier, shop.loginId)
+        if (await isTaskActive(task)) {
+          continueButton.click()
         }
       }
     }

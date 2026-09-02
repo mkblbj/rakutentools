@@ -166,6 +166,46 @@ export const canSubmitPassword = (task: EbayLoginTask): boolean => {
   return task.phase === "identifierSubmitted"
 }
 
+export type EbaySignInPageAction =
+  | "none"
+  | "switchAccount"
+  | "submitPassword"
+  | "submitIdentifier"
+
+export interface EbaySignInPageActionSignals {
+  phase: EbayLoginPhase
+  hasNormalPasswordPage: boolean
+  identifierVisible: boolean
+  continueVisible: boolean
+  hasManualChallenge: boolean
+}
+
+export const getEbaySignInPageAction = ({
+  phase,
+  hasNormalPasswordPage,
+  identifierVisible,
+  continueVisible,
+  hasManualChallenge
+}: EbaySignInPageActionSignals): EbaySignInPageAction => {
+  if (hasManualChallenge || phase === "manual") return "none"
+
+  if (hasNormalPasswordPage) {
+    if (phase === "identifierSubmitted") return "submitPassword"
+    if (phase === "start" || phase === "signingOut") return "switchAccount"
+    return "none"
+  }
+
+  if (
+    identifierVisible &&
+    continueVisible &&
+    (phase === "start" || phase === "signingOut")
+  ) {
+    return "submitIdentifier"
+  }
+
+  return "none"
+}
+
 export interface EbayNormalPasswordPageSignals {
   passwordVisible: boolean
   signInVisible: boolean
