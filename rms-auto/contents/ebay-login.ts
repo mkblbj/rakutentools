@@ -14,6 +14,7 @@ import {
   isEbayLoginTaskExpired,
   isEbayLoginTaskPage,
   isEbayLoginWindowNameForTask,
+  isEbayNormalPasswordPageSignals,
   normalizeEbayLoginTask,
   withEbayLoginPhase,
   type EbayLoginPhase,
@@ -56,7 +57,7 @@ const hasManualChallenge = (): boolean => {
   }
 
   if (
-    document.querySelector(
+    hasVisibleElement(
       [
         "input[autocomplete='one-time-code']",
         "input[name*='otp' i]",
@@ -84,6 +85,7 @@ const hasManualChallenge = (): boolean => {
   const heading = Array.from(
     document.querySelectorAll<HTMLElement>("h1, h2, [role='heading']")
   )
+    .filter(isVisible)
     .map((element) => element.textContent ?? "")
     .join(" ")
   return /(sms|authenticator|passkey|verification|security check|security code|verify it's you)/i.test(
@@ -111,16 +113,6 @@ const hasNormalPasswordPage = (
   password: HTMLInputElement,
   signInButton: HTMLElement
 ): boolean => {
-  const form = password.closest("form")
-  if (
-    !form ||
-    signInButton.closest("form") !== form ||
-    !isVisible(password) ||
-    !isVisible(signInButton)
-  ) {
-    return false
-  }
-
   const hasNormalHeading = Array.from(
     document.querySelectorAll<HTMLElement>("h1, h2, [role='heading']")
   ).some(
@@ -129,28 +121,12 @@ const hasNormalPasswordPage = (
       /^(sign in|welcome)\b/i.test(heading.textContent?.trim() ?? "")
   )
 
-  const hasBlockingControl = hasVisibleElement(
-    [
-      "dialog",
-      "[role='dialog']",
-      "iframe[src*='auth' i]",
-      "iframe[src*='verify' i]",
-      "iframe[src*='challenge' i]",
-      "iframe[src*='captcha' i]",
-      "iframe[src*='2fa' i]",
-      "input[autocomplete='one-time-code']",
-      "input[name*='otp' i]",
-      "input[id*='otp' i]",
-      "input[name*='code' i]",
-      "input[id*='code' i]",
-      "input[name*='verification' i]",
-      "input[id*='verification' i]",
-      "[id*='challenge' i]",
-      "[class*='challenge' i]"
-    ].join(", ")
-  )
-
-  return hasNormalHeading && !hasManualChallenge() && !hasBlockingControl
+  return isEbayNormalPasswordPageSignals({
+    passwordVisible: isVisible(password),
+    signInVisible: isVisible(signInButton),
+    hasNormalHeading,
+    hasManualChallenge: hasManualChallenge()
+  })
 }
 
 const isTaskActive = async (task: EbayLoginTask): Promise<boolean> => {

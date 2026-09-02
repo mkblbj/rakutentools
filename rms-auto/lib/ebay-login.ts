@@ -166,6 +166,27 @@ export const canSubmitPassword = (task: EbayLoginTask): boolean => {
   return task.phase === "identifierSubmitted"
 }
 
+export interface EbayNormalPasswordPageSignals {
+  passwordVisible: boolean
+  signInVisible: boolean
+  hasNormalHeading: boolean
+  hasManualChallenge: boolean
+}
+
+export const isEbayNormalPasswordPageSignals = ({
+  passwordVisible,
+  signInVisible,
+  hasNormalHeading,
+  hasManualChallenge
+}: EbayNormalPasswordPageSignals): boolean => {
+  return (
+    passwordVisible &&
+    signInVisible &&
+    hasNormalHeading &&
+    !hasManualChallenge
+  )
+}
+
 export const isEbayLoginCompletionPhase = (task: EbayLoginTask): boolean => {
   return ["identifierSubmitted", "passwordSubmitted", "manual"].includes(
     task.phase

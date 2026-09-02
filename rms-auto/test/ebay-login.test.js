@@ -129,6 +129,47 @@ test("login tasks validate phases and expire after ten minutes", () => {
   )
 })
 
+test("normal Welcome password page is not wrongly rejected when its controls are visible", () => {
+  const login = loadTsModule("lib/ebay-login.ts")
+
+  assert.equal(
+    login.isEbayNormalPasswordPageSignals({
+      passwordVisible: true,
+      signInVisible: true,
+      hasNormalHeading: true,
+      hasManualChallenge: false
+    }),
+    true
+  )
+  assert.equal(
+    login.isEbayNormalPasswordPageSignals({
+      passwordVisible: true,
+      signInVisible: true,
+      hasNormalHeading: true,
+      hasManualChallenge: true
+    }),
+    false
+  )
+  assert.equal(
+    login.isEbayNormalPasswordPageSignals({
+      passwordVisible: false,
+      signInVisible: true,
+      hasNormalHeading: true,
+      hasManualChallenge: false
+    }),
+    false
+  )
+  assert.equal(
+    login.isEbayNormalPasswordPageSignals({
+      passwordVisible: true,
+      signInVisible: false,
+      hasNormalHeading: true,
+      hasManualChallenge: false
+    }),
+    false
+  )
+})
+
 test("eBay flow marker only authorizes pages for its login task", () => {
   const login = loadTsModule("lib/ebay-login.ts")
   const task = login.createEbayLoginTask(1, 1_000_000)
