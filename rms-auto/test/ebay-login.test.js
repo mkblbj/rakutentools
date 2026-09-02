@@ -287,6 +287,56 @@ test("eBay manual challenge DOM boundary collects visible wrappers and controls"
       expected: true
     },
     {
+      name: "visible g-recaptcha wrapper blocks",
+      root: createRoot([
+        {
+          selectorPart: "[class*='captcha' i]",
+          element: createElement({ className: "g-recaptcha" })
+        }
+      ]),
+      expected: true
+    },
+    {
+      name: "visible captchaContainer wrapper blocks",
+      root: createRoot([
+        {
+          selectorPart: "[id*='captcha' i]",
+          element: createElement({ id: "captchaContainer" })
+        }
+      ]),
+      expected: true
+    },
+    {
+      name: "visible verifyChallenge wrapper blocks",
+      root: createRoot([
+        {
+          selectorPart: "[id*='verify' i]",
+          element: createElement({ id: "verifyChallenge" })
+        }
+      ]),
+      expected: true
+    },
+    {
+      name: "visible challenge_wrapper blocks",
+      root: createRoot([
+        {
+          selectorPart: "[class*='challenge' i]",
+          element: createElement({ className: "challenge_wrapper" })
+        }
+      ]),
+      expected: true
+    },
+    {
+      name: "hidden captchaContainer wrapper does not block",
+      root: createRoot([
+        {
+          selectorPart: "[id*='captcha' i]",
+          element: createElement({ id: "captchaContainer", display: "none" })
+        }
+      ]),
+      expected: false
+    },
+    {
       name: "visible non-heading passkey button blocks",
       root: createRoot([
         {

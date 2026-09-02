@@ -239,7 +239,7 @@ export const isEbayElementVisible = (
   )
 }
 
-const ebayManualChallengeSelector = [
+const ebayManualChallengeInteractiveSelector = [
   "input",
   "button",
   "a[href]",
@@ -247,7 +247,10 @@ const ebayManualChallengeSelector = [
   "h1",
   "h2",
   "[role='heading']",
-  "[role='button']",
+  "[role='button']"
+].join(", ")
+
+const ebayManualChallengeWrapperSelector = [
   "[id*='captcha' i]",
   "[class*='captcha' i]",
   "[id*='challenge' i]",
@@ -265,19 +268,28 @@ export const hasEbayManualChallengeOnPage = (
 ): boolean => {
   if (/(captcha|challenge|verify|2fa)/i.test(pathname)) return true
 
-  return Array.from(root.querySelectorAll<HTMLElement>(ebayManualChallengeSelector)).some(
-    (element) =>
-      isEbayManualChallengeSignal({
-        visible: isEbayElementVisible(element, getComputedStyle),
-        text: element.textContent ?? "",
-        id: element.id,
-        className: element.getAttribute("class") ?? "",
-        name: element.getAttribute("name") ?? "",
-        src: element.getAttribute("src") ?? "",
-        ariaLabel: element.getAttribute("aria-label") ?? "",
-        title: element.getAttribute("title") ?? "",
-        autocomplete: element.getAttribute("autocomplete") ?? ""
-      })
+  if (
+    Array.from(
+      root.querySelectorAll<HTMLElement>(ebayManualChallengeWrapperSelector)
+    ).some((element) => isEbayElementVisible(element, getComputedStyle))
+  ) {
+    return true
+  }
+
+  return Array.from(
+    root.querySelectorAll<HTMLElement>(ebayManualChallengeInteractiveSelector)
+  ).some((element) =>
+    isEbayManualChallengeSignal({
+      visible: isEbayElementVisible(element, getComputedStyle),
+      text: element.textContent ?? "",
+      id: element.id,
+      className: element.getAttribute("class") ?? "",
+      name: element.getAttribute("name") ?? "",
+      src: element.getAttribute("src") ?? "",
+      ariaLabel: element.getAttribute("aria-label") ?? "",
+      title: element.getAttribute("title") ?? "",
+      autocomplete: element.getAttribute("autocomplete") ?? ""
+    })
   )
 }
 
