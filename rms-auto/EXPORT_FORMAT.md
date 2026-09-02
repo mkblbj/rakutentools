@@ -6,7 +6,7 @@
 
 ```json
 {
-  "version": "0.1.1",
+  "version": "0.2.0",
   "exportDate": "2025-12-14T08:30:00.000Z",
   "shops": [
     {
@@ -23,6 +23,13 @@
       "userId": "rakuten-user-id-2",
       "userPass": "rakuten-user-password-2"
     }
+  ],
+  "ebayShops": [
+    {
+      "name": "eBayテスト店舗",
+      "loginId": "seller@example.test",
+      "password": "example-password"
+    }
   ]
 }
 ```
@@ -34,6 +41,7 @@
 - `version` (string): エクスポート形式のバージョン
 - `exportDate` (string): エクスポート日時（ISO 8601形式）
 - `shops` (array): 店舗情報の配列（最大20件）
+- `ebayShops` (array, optional): eBay Seller Hub の店舗情報（最大4件）。旧形式のインポートでは省略可能です。
 
 ### shops 配列の各要素
 
@@ -43,6 +51,14 @@
 - `userId` (string): 楽天会員ユーザID
 - `userPass` (string): 楽天会員パスワード
 
+### ebayShops 配列の各要素
+
+- `name` (string): eBay 店舗名
+- `loginId` (string): eBay のメールアドレスまたはユーザー名
+- `password` (string): eBay パスワード
+
+`ebayShops` は最大4件をサポートします。ほかの認証情報と同様、これらの値は平文で保存されます。
+
 ## セキュリティに関する注意
 
 ⚠️ **重要**: エクスポートされた JSON ファイルには、すべてのログイン情報が**平文**で保存されます。
@@ -50,14 +66,17 @@
 ### 推奨事項
 
 1. **ファイルの保管**
+
    - エクスポートファイルは安全な場所に保管してください
    - クラウドストレージに保存する場合は暗号化を推奨します
 
 2. **共有**
+
    - このファイルを他人と共有しないでください
    - メールやチャットで送信しないでください
 
 3. **バックアップ**
+
    - 定期的にバックアップを取ることを推奨します
    - バックアップファイルも安全に保管してください
 
