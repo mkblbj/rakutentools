@@ -6,9 +6,11 @@ import {
   canSubmitPassword,
   createEbayLoginWindowName,
   createEbaySellerHubUrl,
-  EBAY_LOGIN_TASK_KEY,
+  EBAY_LOGIN_ACTIVE_MARKER_KEY,
   EBAY_LOGIN_TIMEOUT_MS,
+  getEbayLoginTaskStorageKey,
   isEbayLoginCompletionPhase,
+  isEbayLoginTaskActive,
   isEbayLoginTaskExpired,
   isEbayLoginTaskPage,
   isEbayLoginWindowNameForTask,
@@ -151,19 +153,29 @@ const hasNormalPasswordPage = (
   return hasNormalHeading && !hasManualChallenge() && !hasBlockingControl
 }
 
-const savePhase = async (task: EbayLoginTask, phase: EbayLoginPhase) => {
-  await chrome.storage.local.set({
-    [EBAY_LOGIN_TASK_KEY]: withEbayLoginPhase(task, phase)
-  })
+const isTaskActive = async (task: EbayLoginTask): Promise<boolean> => {
+  const stored = await chrome.storage.local.get(EBAY_LOGIN_ACTIVE_MARKER_KEY)
+  return isEbayLoginTaskActive(stored[EBAY_LOGIN_ACTIVE_MARKER_KEY], task)
 }
 
-const clearTask = async (task?: EbayLoginTask) => {
+const savePhase = async (
+  task: EbayLoginTask,
+  phase: EbayLoginPhase
+): Promise<boolean> => {
+  if (!(await isTaskActive(task))) return false
+  await chrome.storage.local.set({
+    [getEbayLoginTaskStorageKey(task)]: withEbayLoginPhase(task, phase)
+  })
+  return isTaskActive(task)
+}
+
+const clearTask = async (task: EbayLoginTask) => {
   if (expiryTimer !== null) {
     window.clearTimeout(expiryTimer)
     expiryTimer = null
   }
-  await chrome.storage.local.remove(EBAY_LOGIN_TASK_KEY)
-  if (task && isEbayLoginWindowNameForTask(window.name, task)) {
+  await chrome.storage.local.remove(getEbayLoginTaskStorageKey(task))
+  if (isEbayLoginWindowNameForTask(window.name, task)) {
     window.name = ""
   }
 }
@@ -181,13 +193,29 @@ const cancelExpiryCleanup = () => {
   }
 }
 
+const readActiveTask = async (): Promise<EbayLoginTask | null> => {
+  const active = await chrome.storage.local.get(EBAY_LOGIN_ACTIVE_MARKER_KEY)
+  const marker = active[EBAY_LOGIN_ACTIVE_MARKER_KEY]
+  if (typeof marker !== "number" || !Number.isFinite(marker)) return null
+
+  const taskKey = getEbayLoginTaskStorageKey(marker)
+  const stored = await chrome.storage.local.get(taskKey)
+  const task = normalizeEbayLoginTask(stored[taskKey])
+  if (!task || !isEbayLoginTaskActive(marker, task)) {
+    await chrome.storage.local.remove(taskKey)
+    return null
+  }
+  return task
+}
+
 const scheduleExpiryCleanup = (task: EbayLoginTask) => {
   cancelExpiryCleanup()
   const delay = Math.max(0, task.startedAt + EBAY_LOGIN_TIMEOUT_MS - Date.now())
   expiryTimer = window.setTimeout(() => {
     void (async () => {
-      const stored = await chrome.storage.local.get(EBAY_LOGIN_TASK_KEY)
-      const currentTask = normalizeEbayLoginTask(stored[EBAY_LOGIN_TASK_KEY])
+      const taskKey = getEbayLoginTaskStorageKey(task)
+      const stored = await chrome.storage.local.get(taskKey)
+      const currentTask = normalizeEbayLoginTask(stored[taskKey])
       if (
         currentTask &&
         currentTask.startedAt === task.startedAt &&
@@ -211,12 +239,8 @@ const processPage = async () => {
   processing = true
 
   try {
-    const stored = await chrome.storage.local.get(EBAY_LOGIN_TASK_KEY)
-    const task = normalizeEbayLoginTask(stored[EBAY_LOGIN_TASK_KEY])
+    const task = await readActiveTask()
     if (!task) {
-      if (stored[EBAY_LOGIN_TASK_KEY] !== undefined) {
-        await clearTask()
-      }
       cancelExpiryCleanup()
       observer?.disconnect()
       return
@@ -255,8 +279,11 @@ const processPage = async () => {
     const path = window.location.pathname
 
     if (host === "pages.ebay.com" && path.startsWith("/SignOutConfirm")) {
-      await savePhase(task, "start")
-      window.location.assign(createEbaySellerHubUrl(task))
+      if (await savePhase(task, "start")) {
+        if (await isTaskActive(task)) {
+          window.location.assign(createEbaySellerHubUrl(task))
+        }
+      }
       return
     }
 
@@ -268,7 +295,12 @@ const processPage = async () => {
       }
 
       const signOut = queryFirst<HTMLElement>(["#gh-uo", "a[href*='SignOut']"])
-      if (task.phase === "signingOut" && signOut && !signOutClicked) {
+      if (
+        task.phase === "signingOut" &&
+        signOut &&
+        !signOutClicked &&
+        (await isTaskActive(task))
+      ) {
         signOutClicked = true
         signOut.click()
         return
@@ -278,8 +310,11 @@ const processPage = async () => {
         const accountMenu = queryFirst<HTMLElement>(["#gh-ug"])
         const menuText = accountMenu?.textContent ?? ""
         if (accountMenu && !/sign in/i.test(menuText)) {
-          await savePhase(task, "signingOut")
-          accountMenu.click()
+          if (await savePhase(task, "signingOut")) {
+            if (await isTaskActive(task)) {
+              accountMenu.click()
+            }
+          }
         }
       }
       return
@@ -305,9 +340,13 @@ const processPage = async () => {
     ])
     const continueButton = queryFirst<HTMLElement>(["#signin-continue-btn"])
     if (identifier && continueButton && canSubmitIdentifier(task)) {
-      await savePhase(task, "identifierSubmitted")
-      setInputValueAndNotify(identifier, shop.loginId)
-      continueButton.click()
+      if (await savePhase(task, "identifierSubmitted")) {
+        if (!(await isTaskActive(task))) return
+        setInputValueAndNotify(identifier, shop.loginId)
+        if (await isTaskActive(task)) {
+          continueButton.click()
+        }
+      }
       return
     }
 
@@ -322,9 +361,13 @@ const processPage = async () => {
       isNormalPasswordPage &&
       canSubmitPassword(task)
     ) {
-      await savePhase(task, "passwordSubmitted")
-      setInputValueAndNotify(password, shop.password)
-      signInButton.click()
+      if (await savePhase(task, "passwordSubmitted")) {
+        if (!(await isTaskActive(task))) return
+        setInputValueAndNotify(password, shop.password)
+        if (await isTaskActive(task)) {
+          signInButton.click()
+        }
+      }
       return
     }
 
@@ -340,8 +383,10 @@ const processPage = async () => {
         "Use another account"
       ])
       if (switchAccount) {
-        switchAccountClicked = true
-        switchAccount.click()
+        if (await isTaskActive(task)) {
+          switchAccountClicked = true
+          switchAccount.click()
+        }
       }
     }
   } finally {

@@ -161,7 +161,21 @@ test("eBay flow marker only authorizes pages for its login task", () => {
     true
   )
   assert.equal(
-    login.isEbayLoginTaskPage("https://www.ebay.com/sh/ovw", "", "", task),
+    login.isEbayLoginTaskPage(
+      "https://www.ebay.com/sh/ovw",
+      "",
+      login.createEbayLoginWindowName(task),
+      task
+    ),
+    true
+  )
+  assert.equal(
+    login.isEbayLoginTaskPage(
+      "https://www.ebay.com/sh/ovw",
+      "",
+      login.createEbayLoginWindowName(otherTask),
+      task
+    ),
     false
   )
   assert.equal(
@@ -195,4 +209,38 @@ test("eBay window name authorizes origin-only SignOutConfirm referrers", () => {
     ),
     false
   )
+})
+
+test("eBay tasks use independent keys and only the active marker authorizes a task", () => {
+  const login = loadTsModule("lib/ebay-login.ts")
+  const taskA = login.createEbayLoginTask(0, 1_000_000)
+  const taskB = login.createEbayLoginTask(1, 1_000_001)
+  const taskAKey = login.getEbayLoginTaskStorageKey(taskA)
+  const taskBKey = login.getEbayLoginTaskStorageKey(taskB)
+  const storage = {
+    [login.EBAY_LOGIN_ACTIVE_MARKER_KEY]: taskB.startedAt,
+    [taskAKey]: taskA,
+    [taskBKey]: taskB
+  }
+
+  assert.equal(taskAKey, "ebayAutoLoginTask:1000000")
+  assert.equal(taskBKey, "ebayAutoLoginTask:1000001")
+  assert.equal(
+    login.isEbayLoginTaskActive(
+      storage[login.EBAY_LOGIN_ACTIVE_MARKER_KEY],
+      taskA
+    ),
+    false
+  )
+  assert.equal(
+    login.isEbayLoginTaskActive(
+      storage[login.EBAY_LOGIN_ACTIVE_MARKER_KEY],
+      taskB
+    ),
+    true
+  )
+
+  delete storage[taskAKey]
+  assert.deepEqual(plain(storage[taskBKey]), plain(taskB))
+  assert.equal(storage[login.EBAY_LOGIN_ACTIVE_MARKER_KEY], taskB.startedAt)
 })

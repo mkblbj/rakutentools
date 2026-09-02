@@ -21,9 +21,12 @@ import {
 import {
   createEbayLoginTask,
   createEbaySellerHubUrl,
-  EBAY_LOGIN_TASK_KEY
+  EBAY_LOGIN_ACTIVE_MARKER_KEY,
+  getEbayLoginTaskStorageKey
 } from "~lib/ebay-login"
 import { syncRemoteConfigToLocal } from "~lib/sync"
+
+let latestEbaySelection = 0
 
 function IndexPopup() {
   const [shops, setShops] = useState<Shop[]>([])
@@ -114,10 +117,35 @@ function IndexPopup() {
   }
 
   const openEbay = async (shopIndex: number) => {
+    const selection = ++latestEbaySelection
     const task = createEbayLoginTask(shopIndex)
+    const active = await chrome.storage.local.get(EBAY_LOGIN_ACTIVE_MARKER_KEY)
+    if (selection !== latestEbaySelection) return
+
+    const previousMarker = active[EBAY_LOGIN_ACTIVE_MARKER_KEY]
     await chrome.storage.local.set({
-      [EBAY_LOGIN_TASK_KEY]: task
+      [EBAY_LOGIN_ACTIVE_MARKER_KEY]: task.startedAt,
+      [getEbayLoginTaskStorageKey(task)]: task
     })
+    if (selection !== latestEbaySelection) {
+      await chrome.storage.local.remove(getEbayLoginTaskStorageKey(task))
+      return
+    }
+
+    if (
+      typeof previousMarker === "number" &&
+      Number.isFinite(previousMarker) &&
+      previousMarker !== task.startedAt
+    ) {
+      await chrome.storage.local.remove(
+        getEbayLoginTaskStorageKey(previousMarker)
+      )
+    }
+    if (selection !== latestEbaySelection) {
+      await chrome.storage.local.remove(getEbayLoginTaskStorageKey(task))
+      return
+    }
+
     chrome.tabs.create({ url: createEbaySellerHubUrl(task) })
   }
 
