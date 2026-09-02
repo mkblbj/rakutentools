@@ -168,6 +168,63 @@ test("normal Welcome password page is not wrongly rejected when its controls are
     }),
     false
   )
+  assert.equal(
+    login.isEbayNormalPasswordPageSignals({
+      passwordVisible: true,
+      signInVisible: true,
+      hasNormalHeading: false,
+      hasManualChallenge: false
+    }),
+    false
+  )
+})
+
+test("eBay manual challenge signals only block visible challenge controls", () => {
+  const login = loadTsModule("lib/ebay-login.ts")
+  const cases = [
+    {
+      name: "hidden verify/challenge wrapper does not block password submission",
+      signal: { visible: false, id: "verify-challenge" },
+      expected: false
+    },
+    {
+      name: "visible ordinary Use a passkey button blocks password submission",
+      signal: { visible: true, text: "Use a passkey" },
+      expected: true
+    },
+    {
+      name: "visible authenticator iframe blocks password submission",
+      signal: {
+        visible: true,
+        src: "https://signin.ebay.com/authenticator/challenge"
+      },
+      expected: true
+    },
+    {
+      name: "visible SMS verification heading blocks password submission",
+      signal: { visible: true, text: "Confirm by SMS" },
+      expected: true
+    },
+    {
+      name: "visible OTP code control blocks password submission",
+      signal: { visible: true, id: "security-code", name: "otp" },
+      expected: true
+    },
+    {
+      name: "visible normal password and sign-in controls do not block submission",
+      signal: {
+        visible: true,
+        id: "pass",
+        name: "password",
+        text: "Sign in"
+      },
+      expected: false
+    }
+  ]
+
+  for (const { name, signal, expected } of cases) {
+    assert.equal(login.isEbayManualChallengeSignal(signal), expected, name)
+  }
 })
 
 test("eBay flow marker only authorizes pages for its login task", () => {

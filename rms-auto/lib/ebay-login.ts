@@ -187,6 +187,34 @@ export const isEbayNormalPasswordPageSignals = ({
   )
 }
 
+export interface EbayManualChallengeSignal {
+  visible: boolean
+  text?: string
+  id?: string
+  name?: string
+  src?: string
+  ariaLabel?: string
+  title?: string
+  autocomplete?: string
+}
+
+export const isEbayManualChallengeSignal = ({
+  visible,
+  text = "",
+  id = "",
+  name = "",
+  src = "",
+  ariaLabel = "",
+  title = "",
+  autocomplete = ""
+}: EbayManualChallengeSignal): boolean => {
+  if (!visible) return false
+
+  return /\b(?:captcha|challenge|verify|verification|2fa|otp|sms|one[- ]?time[- ]?code|passkey|authenticator|security[ -]check|security[ -]code)\b/i.test(
+    [text, id, name, src, ariaLabel, title, autocomplete].join(" ")
+  )
+}
+
 export const isEbayLoginCompletionPhase = (task: EbayLoginTask): boolean => {
   return ["identifierSubmitted", "passwordSubmitted", "manual"].includes(
     task.phase

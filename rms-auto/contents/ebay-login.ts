@@ -14,6 +14,7 @@ import {
   isEbayLoginTaskExpired,
   isEbayLoginTaskPage,
   isEbayLoginWindowNameForTask,
+  isEbayManualChallengeSignal,
   isEbayNormalPasswordPageSignals,
   normalizeEbayLoginTask,
   withEbayLoginPhase,
@@ -56,40 +57,30 @@ const hasManualChallenge = (): boolean => {
     return true
   }
 
-  if (
-    hasVisibleElement(
+  return Array.from(
+    document.querySelectorAll<HTMLElement>(
       [
-        "input[autocomplete='one-time-code']",
-        "input[name*='otp' i]",
-        "input[id*='otp' i]",
-        "input[name*='code' i]",
-        "input[id*='code' i]",
-        "input[name*='2fa' i]",
-        "input[id*='2fa' i]",
-        "iframe[src*='captcha' i]",
-        "iframe[src*='challenge' i]",
-        "[id*='captcha' i]",
-        "[class*='captcha' i]",
-        "[id*='challenge' i]",
-        "[class*='challenge' i]",
-        "[id*='verify' i]",
-        "[class*='verify' i]",
-        "[id*='2fa' i]",
-        "[class*='2fa' i]"
+        "input",
+        "button",
+        "a[href]",
+        "[role='button']",
+        "iframe",
+        "h1",
+        "h2",
+        "[role='heading']"
       ].join(", ")
     )
-  ) {
-    return true
-  }
-
-  const heading = Array.from(
-    document.querySelectorAll<HTMLElement>("h1, h2, [role='heading']")
-  )
-    .filter(isVisible)
-    .map((element) => element.textContent ?? "")
-    .join(" ")
-  return /(sms|authenticator|passkey|verification|security check|security code|verify it's you)/i.test(
-    heading
+  ).some((element) =>
+    isEbayManualChallengeSignal({
+      visible: isVisible(element),
+      text: element.textContent ?? "",
+      id: element.id,
+      name: element.getAttribute("name") ?? "",
+      src: element.getAttribute("src") ?? "",
+      ariaLabel: element.getAttribute("aria-label") ?? "",
+      title: element.getAttribute("title") ?? "",
+      autocomplete: element.getAttribute("autocomplete") ?? ""
+    })
   )
 }
 
@@ -100,12 +91,6 @@ const isVisible = (element: HTMLElement): boolean => {
     style.visibility !== "hidden" &&
     style.opacity !== "0" &&
     element.getClientRects().length > 0
-  )
-}
-
-const hasVisibleElement = (selector: string): boolean => {
-  return Array.from(document.querySelectorAll<HTMLElement>(selector)).some(
-    isVisible
   )
 }
 
