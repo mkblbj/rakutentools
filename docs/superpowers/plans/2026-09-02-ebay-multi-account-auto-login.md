@@ -92,7 +92,6 @@ const loadTsModule = (relativePath) => {
 
 const plain = (value) => JSON.parse(JSON.stringify(value))
 const config = loadTsModule("lib/config.ts")
-const login = loadTsModule("lib/ebay-login.ts")
 
 test("legacy data receives four empty eBay shops", () => {
   const normalized = plain(config.normalizeExportData({ shops: [] }))
@@ -143,6 +142,12 @@ test("eBay shops are sanitized, padded, truncated and exported", () => {
 })
 
 test("login tasks validate phases and expire after ten minutes", () => {
+  let login
+  try {
+    login = loadTsModule("lib/ebay-login.ts")
+  } catch {
+    assert.fail("lib/ebay-login.ts must provide the login task behavior")
+  }
   const now = 1_000_000
   const task = login.createEbayLoginTask(2, now)
 
@@ -411,7 +416,6 @@ git commit -m "feat: add ebay account data"
 ### Task 2: 设置页与弹窗入口
 
 **Files:**
-- Modify: `rms-auto/test/ebay-login.test.js`
 - Modify: `rms-auto/options.tsx:1-460,625-1572`
 - Modify: `rms-auto/popup.tsx:1-586`
 
@@ -419,32 +423,7 @@ git commit -m "feat: add ebay account data"
 - Consumes: Task 1 的 `EbayShop`, `EBAY_SHOP_COUNT`, `isCompleteEbayShop()`, `createEbayLoginTask()`.
 - Produces: 4 行 eBay 设置、完整数据通道、弹窗店铺按钮和全局登录任务。
 
-- [ ] **Step 1: 添加失败的核心接线测试**
-
-Append to `rms-auto/test/ebay-login.test.js`:
-
-```js
-test("options and popup wire eBay through storage, export, and login task", () => {
-  const options = fs.readFileSync(
-    path.resolve(__dirname, "../options.tsx"),
-    "utf8"
-  )
-  const popup = fs.readFileSync(
-    path.resolve(__dirname, "../popup.tsx"),
-    "utf8"
-  )
-
-  assert.match(options, /useState<EbayShop\[\]>/)
-  assert.match(options, /ebayShops/)
-  assert.match(options, /imported\.ebayShops/)
-  assert.match(popup, /createEbayLoginTask/)
-  assert.match(popup, /EBAY_SELLER_HUB_URL/)
-})
-```
-
-Run `node --test test/ebay-login.test.js` and confirm it FAILS.
-
-- [ ] **Step 2: 接入设置页状态、校验和数据通道**
+- [ ] **Step 1: 接入设置页状态、校验和数据通道**
 
 In `options.tsx`, import the Task 1 eBay types and helpers, then add:
 
@@ -572,7 +551,7 @@ Insert one fixed card before the end of the existing `fieldset`:
 </div>
 ```
 
-- [ ] **Step 3: 接入弹窗按钮**
+- [ ] **Step 2: 接入弹窗按钮**
 
 In `popup.tsx`, import `EbayShop`, `isCompleteEbayShop`, and these login helpers:
 
@@ -641,7 +620,7 @@ validEbayShops.length > 0 && `eBay ${validEbayShops.length}`
 
 Also append `|| validEbayShops.length > 0` to the footer visibility condition.
 
-- [ ] **Step 4: 验证并提交**
+- [ ] **Step 3: 验证并提交**
 
 Run:
 
@@ -658,7 +637,7 @@ Expected: tests PASS, typecheck exits 0, and both builds succeed.
 Commit:
 
 ```bash
-git add rms-auto/options.tsx rms-auto/popup.tsx rms-auto/test/ebay-login.test.js
+git add rms-auto/options.tsx rms-auto/popup.tsx
 git commit -m "feat: add ebay account controls"
 ```
 
@@ -668,7 +647,6 @@ git commit -m "feat: add ebay account controls"
 
 **Files:**
 - Create: `rms-auto/contents/ebay-login.ts`
-- Modify: `rms-auto/test/ebay-login.test.js`
 - Modify: `rms-auto/README.md`
 - Modify: `rms-auto/EXPORT_FORMAT.md`
 
@@ -676,28 +654,7 @@ git commit -m "feat: add ebay account controls"
 - Consumes: Task 1 的登录任务和配置；现有 `setInputValueAndNotify()`。
 - Produces: Seller Hub 退出、邮箱提交、密码提交、人工验证停止和最终任务清理。
 
-- [ ] **Step 1: 添加失败的内容脚本边界测试**
-
-Append to `rms-auto/test/ebay-login.test.js`:
-
-```js
-test("eBay content script uses only the required hosts and no background", () => {
-  const source = fs.readFileSync(
-    path.resolve(__dirname, "../contents/ebay-login.ts"),
-    "utf8"
-  )
-
-  assert.match(source, /https:\/\/www\.ebay\.com\/sh\/\*/)
-  assert.match(source, /https:\/\/signin\.ebay\.com\/\*/)
-  assert.match(source, /https:\/\/pages\.ebay\.com\/SignOutConfirm\*/)
-  assert.match(source, /all_frames:\s*false/)
-  assert.doesNotMatch(source, /runtime\.sendMessage|background/)
-})
-```
-
-Run `node --test test/ebay-login.test.js` and confirm it FAILS because the content script does not exist.
-
-- [ ] **Step 2: 实现单一 eBay 内容脚本**
+- [ ] **Step 1: 实现单一 eBay 内容脚本**
 
 Create `rms-auto/contents/ebay-login.ts` with exact matches and no iframe execution:
 
@@ -915,7 +872,7 @@ void processPage()
 
 Do not add credential values to logs or URLs.
 
-- [ ] **Step 3: 更新最小文档**
+- [ ] **Step 2: 更新最小文档**
 
 In `README.md`, add these feature bullets:
 
@@ -953,7 +910,7 @@ In `EXPORT_FORMAT.md`, set the format version to `0.2.0` and document:
 
 State that the array supports four items, is optional for legacy imports, and contains plaintext credentials.
 
-- [ ] **Step 4: 完整验证**
+- [ ] **Step 3: 完整验证**
 
 Run:
 
@@ -975,10 +932,10 @@ Manually verify only these four core cases without recording credentials:
 3. SMS verification stops further automatic input.
 4. CAPTCHA or an unknown page does not repeat-submit either form.
 
-- [ ] **Step 5: 提交核心实现**
+- [ ] **Step 4: 提交核心实现**
 
 ```bash
-git add rms-auto/contents/ebay-login.ts rms-auto/test/ebay-login.test.js rms-auto/README.md rms-auto/EXPORT_FORMAT.md
+git add rms-auto/contents/ebay-login.ts rms-auto/README.md rms-auto/EXPORT_FORMAT.md
 git commit -m "feat: add ebay seller hub login"
 ```
 
