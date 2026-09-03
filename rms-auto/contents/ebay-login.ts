@@ -6,6 +6,8 @@ import {
   createEbaySellerHubUrl,
   EBAY_LOGIN_ACTIVE_MARKER_KEY,
   EBAY_LOGIN_TIMEOUT_MS,
+  findEbayAccountMenuControl,
+  findEbaySignOutControl,
   findEbaySwitchAccountControl,
   getEbayLoginTaskStorageKey,
   getEbaySignInPageAction,
@@ -17,6 +19,7 @@ import {
   isEbayLoginTaskPage,
   isEbayLoginWindowNameForTask,
   isEbayNormalPasswordPageSignals,
+  isEbaySignOutConfirmationPage,
   normalizeEbayLoginTask,
   withEbayLoginPhase,
   type EbayLoginPhase,
@@ -58,18 +61,9 @@ const hasNormalPasswordPage = (
   signInButton: HTMLElement,
   hasManualChallenge: boolean
 ): boolean => {
-  const hasNormalHeading = Array.from(
-    document.querySelectorAll<HTMLElement>("h1, h2, [role='heading']")
-  ).some(
-    (heading) =>
-      isVisible(heading) &&
-      /^(sign in|welcome)\b/i.test(heading.textContent?.trim() ?? "")
-  )
-
   return isEbayNormalPasswordPageSignals({
     passwordVisible: isVisible(password),
     signInVisible: isVisible(signInButton),
-    hasNormalHeading,
     hasManualChallenge
   })
 }
@@ -199,7 +193,7 @@ const processPage = async () => {
     const host = window.location.hostname
     const path = window.location.pathname
 
-    if (host === "pages.ebay.com" && path.startsWith("/SignOutConfirm")) {
+    if (isEbaySignOutConfirmationPage(host, path)) {
       if (await savePhase(task, "start")) {
         if (await isTaskActive(task)) {
           window.location.assign(createEbaySellerHubUrl(task))
@@ -215,7 +209,7 @@ const processPage = async () => {
         return
       }
 
-      const signOut = queryFirst<HTMLElement>(["#gh-uo", "a[href*='SignOut']"])
+      const signOut = findEbaySignOutControl(document, window.getComputedStyle)
       if (
         task.phase === "signingOut" &&
         signOut &&
@@ -228,7 +222,10 @@ const processPage = async () => {
       }
 
       if (task.phase === "start") {
-        const accountMenu = queryFirst<HTMLElement>(["#gh-ug"])
+        const accountMenu = findEbayAccountMenuControl(
+          document,
+          window.getComputedStyle
+        )
         const menuText = accountMenu?.textContent ?? ""
         if (accountMenu && !/sign in/i.test(menuText)) {
           if (await savePhase(task, "signingOut")) {

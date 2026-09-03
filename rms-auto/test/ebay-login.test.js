@@ -129,14 +129,13 @@ test("login tasks validate phases and expire after ten minutes", () => {
   )
 })
 
-test("normal Welcome password page is not wrongly rejected when its controls are visible", () => {
+test("normal password controls are language independent and challenge aware", () => {
   const login = loadTsModule("lib/ebay-login.ts")
 
   assert.equal(
     login.isEbayNormalPasswordPageSignals({
       passwordVisible: true,
       signInVisible: true,
-      hasNormalHeading: true,
       hasManualChallenge: false
     }),
     true
@@ -145,7 +144,6 @@ test("normal Welcome password page is not wrongly rejected when its controls are
     login.isEbayNormalPasswordPageSignals({
       passwordVisible: true,
       signInVisible: true,
-      hasNormalHeading: true,
       hasManualChallenge: true
     }),
     false
@@ -154,7 +152,6 @@ test("normal Welcome password page is not wrongly rejected when its controls are
     login.isEbayNormalPasswordPageSignals({
       passwordVisible: false,
       signInVisible: true,
-      hasNormalHeading: true,
       hasManualChallenge: false
     }),
     false
@@ -163,16 +160,6 @@ test("normal Welcome password page is not wrongly rejected when its controls are
     login.isEbayNormalPasswordPageSignals({
       passwordVisible: true,
       signInVisible: false,
-      hasNormalHeading: true,
-      hasManualChallenge: false
-    }),
-    false
-  )
-  assert.equal(
-    login.isEbayNormalPasswordPageSignals({
-      passwordVisible: true,
-      signInVisible: true,
-      hasNormalHeading: false,
       hasManualChallenge: false
     }),
     false
@@ -288,6 +275,45 @@ test("eBay switch-account finder accepts the live prefixed control", () => {
     login.findEbaySwitchAccountControl(root, (element) => element.style),
     switchAccount
   )
+})
+
+test("current eBay header account and sign-out controls are recognized", () => {
+  const login = loadTsModule("lib/ebay-login.ts")
+
+  assert.equal(typeof login.findEbayAccountMenuControl, "function")
+  assert.equal(typeof login.findEbaySignOutControl, "function")
+
+  const accountMenu = {
+    tagName: "BUTTON",
+    className: "gh-flyout__target gh-flyout__target--left",
+    getAttribute: (name) =>
+      name === "aria-controls" ? "account-dialog" : null,
+    getClientRects: () => [{}],
+    style: { display: "block", visibility: "visible", opacity: "1" }
+  }
+  const signOut = {
+    tagName: "A",
+    getAttribute: (name) =>
+      name === "href"
+        ? "https://signin.ebay.com/ws/eBayISAPI.dll?SignIn&lgout=1&sgfl=gh"
+        : null,
+    getClientRects: () => [{}],
+    style: { display: "block", visibility: "visible", opacity: "1" }
+  }
+  const root = {
+    querySelectorAll: (selector) => {
+      if (selector.includes("gh-flyout__target--left")) return [accountMenu]
+      if (selector.includes("lgout=1")) return [signOut]
+      return []
+    }
+  }
+  const getComputedStyle = (element) => element.style
+
+  assert.equal(
+    login.findEbayAccountMenuControl(root, getComputedStyle),
+    accountMenu
+  )
+  assert.equal(login.findEbaySignOutControl(root, getComputedStyle), signOut)
 })
 
 test("eBay manual challenge signals only block visible challenge controls", () => {
@@ -460,7 +486,7 @@ test("eBay manual challenge DOM boundary collects visible wrappers and controls"
       expected: true
     },
     {
-      name: "optional SMS button on a normal password page does not block",
+      name: "optional SMS button on a localized password page does not block",
       root: createRoot([
         {
           selectorPart: "input",
@@ -471,12 +497,12 @@ test("eBay manual challenge DOM boundary collects visible wrappers and controls"
           element: createElement({
             tagName: "BUTTON",
             id: "sgnBt",
-            text: "Sign in"
+            text: "ログイン"
           })
         },
         {
           selectorPart: "h1",
-          element: createElement({ tagName: "H1", text: "Welcome back!" })
+          element: createElement({ tagName: "H1", text: "おかえりなさい！" })
         },
         {
           selectorPart: "button",
@@ -484,14 +510,14 @@ test("eBay manual challenge DOM boundary collects visible wrappers and controls"
             tagName: "BUTTON",
             id: "sms-otp-btn",
             className: "sms-otp-btn btn",
-            text: "Text me a code"
+            text: "コードをテキストで送信"
           })
         }
       ]),
       expected: false
     },
     {
-      name: "SMS control without a normal password heading still blocks",
+      name: "OTP input on a localized password page still blocks",
       root: createRoot([
         {
           selectorPart: "input",
@@ -502,16 +528,22 @@ test("eBay manual challenge DOM boundary collects visible wrappers and controls"
           element: createElement({
             tagName: "BUTTON",
             id: "sgnBt",
-            text: "Sign in"
+            text: "ログイン"
           })
         },
         {
-          selectorPart: "button",
+          selectorPart: "h1",
+          element: createElement({ tagName: "H1", text: "おかえりなさい！" })
+        },
+        {
+          selectorPart: "input",
           element: createElement({
-            tagName: "BUTTON",
-            id: "sms-otp-btn",
-            className: "sms-otp-btn btn",
-            text: "Text me a code"
+            tagName: "INPUT",
+            id: "security-code",
+            attributes: {
+              name: "otp",
+              autocomplete: "one-time-code"
+            }
           })
         }
       ]),
@@ -556,15 +588,6 @@ test("eBay manual challenge DOM boundary collects visible wrappers and controls"
       name
     )
   }
-  assert.equal(
-    login.isEbayNormalPasswordPageSignals({
-      passwordVisible: true,
-      signInVisible: true,
-      hasNormalHeading: false,
-      hasManualChallenge: false
-    }),
-    false
-  )
 })
 
 test("eBay flow marker only authorizes pages for its login task", () => {
@@ -645,6 +668,24 @@ test("eBay window name authorizes origin-only SignOutConfirm referrers", () => {
       login.createEbayLoginWindowName(otherTask),
       task
     ),
+    false
+  )
+})
+
+test("current and legacy eBay sign-out confirmation pages resume the login flow", () => {
+  const login = loadTsModule("lib/ebay-login.ts")
+
+  assert.equal(typeof login.isEbaySignOutConfirmationPage, "function")
+  assert.equal(
+    login.isEbaySignOutConfirmationPage("signin.ebay.com", "/logout/confirm"),
+    true
+  )
+  assert.equal(
+    login.isEbaySignOutConfirmationPage("pages.ebay.com", "/SignOutConfirm"),
+    true
+  )
+  assert.equal(
+    login.isEbaySignOutConfirmationPage("signin.ebay.com", "/ws/eBayISAPI.dll"),
     false
   )
 })

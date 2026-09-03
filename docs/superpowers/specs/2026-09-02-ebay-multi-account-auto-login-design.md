@@ -2,7 +2,7 @@
 
 **日期：** 2026-09-02
 
-**状态：** 已确认，按核心功能精简
+**状态：** 已实现；2026-09-03 在本地 Chrome 实测账号切换与自动登出成功
 
 **目标项目：** `rms-auto`
 
@@ -101,13 +101,22 @@ export interface EbayLoginTask {
 - `https://signin.ebay.com/*`
 - `https://pages.ebay.com/SignOutConfirm*`
 
+当前登出确认页为 `https://signin.ebay.com/logout/confirm*`，由已有的
+`signin.ebay.com` 匹配范围处理；同时保留旧确认页兼容。
+
 页面动作采用直接、保守的选择器：
 
 - 邮箱或用户名：`#userid`、`[name='userid']`、`[autocomplete='username']`
 - 密码：`#pass`、`[name='pass']`、`[autocomplete='current-password']`
 - Continue：`#signin-continue-btn`
 - Sign in：`#sgnBt`
-- 退出：`#gh-ug`、`#gh-uo`、`a[href*='SignOut']`
+- 切换账号：`#switch-account-anchor`
+- 账户菜单：`button.gh-flyout__target--left[aria-controls]`，兼容旧 `#gh-ug`
+- 退出：`a[href*='lgout=1']`、`a[href*='signout' i]`，兼容旧 `#gh-uo`
+
+正常密码页使用可见的 `#pass` 与 `#sgnBt` 识别，不依赖页面语言。密码页上
+“短信发送验证码”等可选登录方式不阻止密码提交；真正的验证码输入框、验证
+容器、iframe 或验证 URL 仍进入人工处理。
 
 如果没有出现当前阶段预期的元素，脚本不做任何操作。未知页面默认停下。
 

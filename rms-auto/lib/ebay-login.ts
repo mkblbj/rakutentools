@@ -89,6 +89,17 @@ export const isEbayLoginWindowNameForTask = (
   task: EbayLoginTask
 ): boolean => value === createEbayLoginWindowName(task)
 
+export const isEbaySignOutConfirmationPage = (
+  hostname: string,
+  pathname: string
+): boolean => {
+  return (
+    (hostname === "signin.ebay.com" &&
+      pathname.startsWith("/logout/confirm")) ||
+    (hostname === "pages.ebay.com" && pathname.startsWith("/SignOutConfirm"))
+  )
+}
+
 const isEbaySellerHubUrlForTask = (
   value: string,
   task: EbayLoginTask
@@ -209,19 +220,15 @@ export const getEbaySignInPageAction = ({
 export interface EbayNormalPasswordPageSignals {
   passwordVisible: boolean
   signInVisible: boolean
-  hasNormalHeading: boolean
   hasManualChallenge: boolean
 }
 
 export const isEbayNormalPasswordPageSignals = ({
   passwordVisible,
   signInVisible,
-  hasNormalHeading,
   hasManualChallenge
 }: EbayNormalPasswordPageSignals): boolean => {
-  return (
-    passwordVisible && signInVisible && hasNormalHeading && !hasManualChallenge
-  )
+  return passwordVisible && signInVisible && !hasManualChallenge
 }
 
 export interface EbayManualChallengeSignal {
@@ -271,6 +278,32 @@ export const isEbayElementVisible = (
     style.visibility !== "hidden" &&
     style.opacity !== "0" &&
     element.getClientRects().length > 0
+  )
+}
+
+export const findEbayAccountMenuControl = (
+  root: ParentNode,
+  getComputedStyle: EbayGetComputedStyle
+): HTMLElement | null => {
+  return (
+    Array.from(
+      root.querySelectorAll<HTMLElement>(
+        "#gh-ug, button.gh-flyout__target--left[aria-controls]"
+      )
+    ).find((element) => isEbayElementVisible(element, getComputedStyle)) ?? null
+  )
+}
+
+export const findEbaySignOutControl = (
+  root: ParentNode,
+  getComputedStyle: EbayGetComputedStyle
+): HTMLElement | null => {
+  return (
+    Array.from(
+      root.querySelectorAll<HTMLElement>(
+        "#gh-uo, a[href*='lgout=1'], a[href*='signout' i]"
+      )
+    ).find((element) => isEbayElementVisible(element, getComputedStyle)) ?? null
   )
 }
 
@@ -352,14 +385,6 @@ export const hasEbayManualChallengeOnPage = (
       (element) =>
         element.id === "sgnBt" &&
         isEbayElementVisible(element, getComputedStyle)
-    ) &&
-    interactiveElements.some(
-      (element) =>
-        (element.tagName === "H1" ||
-          element.tagName === "H2" ||
-          element.getAttribute("role") === "heading") &&
-        isEbayElementVisible(element, getComputedStyle) &&
-        /^(sign in|welcome)\b/i.test(element.textContent?.trim() ?? "")
     )
 
   return interactiveElements.some((element) => {

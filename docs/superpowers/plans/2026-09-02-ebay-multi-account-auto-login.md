@@ -1,5 +1,8 @@
 # eBay 四账号自动登录精简实施计划
 
+> **状态：已实施。** 本文保留为历史执行记录，代码片段不再代表现役 eBay
+> 页面结构；当前行为与选择器以同目录设计文档及 `rms-auto` 源码为准。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 在 `rms-auto` 中加入 4 个 eBay Seller Hub 账号的顺序切换、邮箱和密码自动填写，并在验证码或未知页面停止。
