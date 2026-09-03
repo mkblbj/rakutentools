@@ -220,10 +220,7 @@ export const isEbayNormalPasswordPageSignals = ({
   hasManualChallenge
 }: EbayNormalPasswordPageSignals): boolean => {
   return (
-    passwordVisible &&
-    signInVisible &&
-    hasNormalHeading &&
-    !hasManualChallenge
+    passwordVisible && signInVisible && hasNormalHeading && !hasManualChallenge
   )
 }
 
@@ -253,9 +250,7 @@ export const isEbayManualChallengeSignal = ({
   if (!visible) return false
 
   return /\b(?:captcha|challenge|verify|verification|2fa|otp|sms|one[- ]?time[- ]?code|passkey|authenticator|security[ -]check|security[ -]code)\b/i.test(
-    [text, id, className, name, src, ariaLabel, title, autocomplete].join(
-      " "
-    )
+    [text, id, className, name, src, ariaLabel, title, autocomplete].join(" ")
   )
 }
 
@@ -276,6 +271,35 @@ export const isEbayElementVisible = (
     style.visibility !== "hidden" &&
     style.opacity !== "0" &&
     element.getClientRects().length > 0
+  )
+}
+
+const ebaySwitchAccountLabels = new Set([
+  "switch account",
+  "not you?",
+  "use another account"
+])
+
+export const findEbaySwitchAccountControl = (
+  root: ParentNode,
+  getComputedStyle: EbayGetComputedStyle
+): HTMLElement | null => {
+  const stableControl = root.querySelector<HTMLElement>(
+    "#switch-account-anchor"
+  )
+  if (stableControl && isEbayElementVisible(stableControl, getComputedStyle)) {
+    return stableControl
+  }
+
+  return (
+    Array.from(
+      root.querySelectorAll<HTMLElement>("button, a, [role='button']")
+    ).find((element) => {
+      if (!isEbayElementVisible(element, getComputedStyle)) return false
+      return (element.innerText || element.textContent || "")
+        .split(/\r?\n/)
+        .some((line) => ebaySwitchAccountLabels.has(line.trim().toLowerCase()))
+    }) ?? null
   )
 }
 
@@ -316,10 +340,38 @@ export const hasEbayManualChallengeOnPage = (
     return true
   }
 
-  return Array.from(
+  const interactiveElements = Array.from(
     root.querySelectorAll<HTMLElement>(ebayManualChallengeInteractiveSelector)
-  ).some((element) =>
-    isEbayManualChallengeSignal({
+  )
+  const hasNormalPasswordPage =
+    interactiveElements.some(
+      (element) =>
+        element.id === "pass" && isEbayElementVisible(element, getComputedStyle)
+    ) &&
+    interactiveElements.some(
+      (element) =>
+        element.id === "sgnBt" &&
+        isEbayElementVisible(element, getComputedStyle)
+    ) &&
+    interactiveElements.some(
+      (element) =>
+        (element.tagName === "H1" ||
+          element.tagName === "H2" ||
+          element.getAttribute("role") === "heading") &&
+        isEbayElementVisible(element, getComputedStyle) &&
+        /^(sign in|welcome)\b/i.test(element.textContent?.trim() ?? "")
+    )
+
+  return interactiveElements.some((element) => {
+    const isOptionalMethod =
+      hasNormalPasswordPage &&
+      (element.tagName === "BUTTON" ||
+        element.tagName === "A" ||
+        element.getAttribute("role") === "button") &&
+      element.id !== "sgnBt"
+    if (isOptionalMethod) return false
+
+    return isEbayManualChallengeSignal({
       visible: isEbayElementVisible(element, getComputedStyle),
       text: element.textContent ?? "",
       id: element.id,
@@ -330,7 +382,7 @@ export const hasEbayManualChallengeOnPage = (
       title: element.getAttribute("title") ?? "",
       autocomplete: element.getAttribute("autocomplete") ?? ""
     })
-  )
+  })
 }
 
 export const isEbayLoginCompletionPhase = (task: EbayLoginTask): boolean => {

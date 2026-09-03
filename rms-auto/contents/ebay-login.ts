@@ -6,15 +6,16 @@ import {
   createEbaySellerHubUrl,
   EBAY_LOGIN_ACTIVE_MARKER_KEY,
   EBAY_LOGIN_TIMEOUT_MS,
+  findEbaySwitchAccountControl,
   getEbayLoginTaskStorageKey,
+  getEbaySignInPageAction,
+  hasEbayManualChallengeOnPage,
+  isEbayElementVisible,
   isEbayLoginCompletionPhase,
   isEbayLoginTaskActive,
   isEbayLoginTaskExpired,
   isEbayLoginTaskPage,
   isEbayLoginWindowNameForTask,
-  getEbaySignInPageAction,
-  hasEbayManualChallengeOnPage,
-  isEbayElementVisible,
   isEbayNormalPasswordPageSignals,
   normalizeEbayLoginTask,
   withEbayLoginPhase,
@@ -39,17 +40,6 @@ const queryFirst = <T extends Element>(selectors: string[]): T | null => {
     if (element) return element
   }
   return null
-}
-
-const findExactAction = (labels: string[]): HTMLElement | null => {
-  const expected = new Set(labels.map((label) => label.toLowerCase()))
-  return (
-    Array.from(
-      document.querySelectorAll<HTMLElement>("button, a, [role='button']")
-    ).find((element) =>
-      expected.has(element.textContent?.trim().toLowerCase() ?? "")
-    ) ?? null
-  )
 }
 
 const hasManualChallenge = (): boolean =>
@@ -303,11 +293,10 @@ const processPage = async () => {
     }
 
     if (action === "switchAccount" && !switchAccountClicked) {
-      const switchAccount = findExactAction([
-        "Switch account",
-        "Not you?",
-        "Use another account"
-      ])
+      const switchAccount = findEbaySwitchAccountControl(
+        document,
+        window.getComputedStyle
+      )
       if (switchAccount) {
         if (await isTaskActive(task)) {
           switchAccountClicked = true
@@ -317,11 +306,7 @@ const processPage = async () => {
       return
     }
 
-    if (
-      action === "submitIdentifier" &&
-      identifier &&
-      continueButton
-    ) {
+    if (action === "submitIdentifier" && identifier && continueButton) {
       if (await savePhase(task, "identifierSubmitted")) {
         if (!(await isTaskActive(task))) return
         setInputValueAndNotify(identifier, shop.loginId)

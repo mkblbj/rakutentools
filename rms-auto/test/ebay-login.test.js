@@ -266,6 +266,30 @@ test("eBay sign-in page action prioritizes switch account over hidden identifier
   }
 })
 
+test("eBay switch-account finder accepts the live prefixed control", () => {
+  const login = loadTsModule("lib/ebay-login.ts")
+
+  assert.equal(typeof login.findEbaySwitchAccountControl, "function")
+
+  const switchAccount = {
+    id: "switch-account-anchor",
+    innerText: "Current user is seller@example.test.\nSwitch account",
+    textContent: "Current user is seller@example.test.Switch account",
+    getClientRects: () => [{}],
+    style: { display: "block", visibility: "visible", opacity: "1" }
+  }
+  const root = {
+    querySelector: (selector) =>
+      selector === "#switch-account-anchor" ? switchAccount : null,
+    querySelectorAll: () => []
+  }
+
+  assert.equal(
+    login.findEbaySwitchAccountControl(root, (element) => element.style),
+    switchAccount
+  )
+})
+
 test("eBay manual challenge signals only block visible challenge controls", () => {
   const login = loadTsModule("lib/ebay-login.ts")
   const cases = [
@@ -317,6 +341,7 @@ test("eBay manual challenge signals only block visible challenge controls", () =
 test("eBay manual challenge DOM boundary collects visible wrappers and controls", () => {
   const login = loadTsModule("lib/ebay-login.ts")
   const createElement = ({
+    tagName = "DIV",
     id = "",
     className = "",
     text = "",
@@ -326,6 +351,7 @@ test("eBay manual challenge DOM boundary collects visible wrappers and controls"
     opacity = "1",
     hasRect = true
   } = {}) => ({
+    tagName,
     id,
     textContent: text,
     getAttribute: (name) => {
@@ -434,6 +460,64 @@ test("eBay manual challenge DOM boundary collects visible wrappers and controls"
       expected: true
     },
     {
+      name: "optional SMS button on a normal password page does not block",
+      root: createRoot([
+        {
+          selectorPart: "input",
+          element: createElement({ tagName: "INPUT", id: "pass" })
+        },
+        {
+          selectorPart: "button",
+          element: createElement({
+            tagName: "BUTTON",
+            id: "sgnBt",
+            text: "Sign in"
+          })
+        },
+        {
+          selectorPart: "h1",
+          element: createElement({ tagName: "H1", text: "Welcome back!" })
+        },
+        {
+          selectorPart: "button",
+          element: createElement({
+            tagName: "BUTTON",
+            id: "sms-otp-btn",
+            className: "sms-otp-btn btn",
+            text: "Text me a code"
+          })
+        }
+      ]),
+      expected: false
+    },
+    {
+      name: "SMS control without a normal password heading still blocks",
+      root: createRoot([
+        {
+          selectorPart: "input",
+          element: createElement({ tagName: "INPUT", id: "pass" })
+        },
+        {
+          selectorPart: "button",
+          element: createElement({
+            tagName: "BUTTON",
+            id: "sgnBt",
+            text: "Sign in"
+          })
+        },
+        {
+          selectorPart: "button",
+          element: createElement({
+            tagName: "BUTTON",
+            id: "sms-otp-btn",
+            className: "sms-otp-btn btn",
+            text: "Text me a code"
+          })
+        }
+      ]),
+      expected: true
+    },
+    {
       name: "visible authenticator iframe blocks",
       root: createRoot([
         {
@@ -448,10 +532,16 @@ test("eBay manual challenge DOM boundary collects visible wrappers and controls"
     {
       name: "ordinary Welcome password and sign-in controls do not block",
       root: createRoot([
-        { selectorPart: "h1", element: createElement({ text: "Welcome back" }) },
+        {
+          selectorPart: "h1",
+          element: createElement({ text: "Welcome back" })
+        },
         {
           selectorPart: "input",
-          element: createElement({ id: "pass", attributes: { name: "password" } })
+          element: createElement({
+            id: "pass",
+            attributes: { name: "password" }
+          })
         },
         { selectorPart: "button", element: createElement({ text: "Sign in" }) }
       ]),
